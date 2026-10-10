@@ -1,12 +1,17 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { CreateTrackingSiteDialog } from '@/components/tracking/CreateTrackingSiteDialog';
 import { TrackingSitesList } from '@/components/tracking/TrackingSitesList';
+import { getCurrentUser } from '@/app/actions/auth';
 import { TrackingSite, Client } from '@/types/database';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export const instant = false;
 
 export default async function TrackingPage() {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) redirect('/login');
+
   let sites: TrackingSite[] = [];
   let currentClient: Client | null = null;
   let activeClientId: string | undefined;
@@ -15,11 +20,18 @@ export default async function TrackingPage() {
     const cookieStore = await cookies();
     activeClientId = cookieStore.get('slt_active_client_id')?.value;
 
-    const supabase = await createServerSupabaseClient();
-    const { data: clients } = await supabase.from('clients').select('*').order('name');
+    const supabase = getSupabaseAdmin();
+    
+    let clientQuery = supabase.from('clients').select('*').order('name');
+    if (currentUser.role === 'client_admin' && currentUser.client_id) {
+      clientQuery = clientQuery.eq('id', currentUser.client_id);
+    }
+    const { data: clients } = await clientQuery;
 
     if (clients && clients.length > 0) {
-      if (!activeClientId || !clients.some((c) => c.id === activeClientId)) {
+      if (currentUser.role === 'client_admin' && currentUser.client_id) {
+        activeClientId = currentUser.client_id;
+      } else if (!activeClientId || !clients.some((c) => c.id === activeClientId)) {
         activeClientId = clients[0].id;
       }
       currentClient = clients.find((c) => c.id === activeClientId) || clients[0];
@@ -36,19 +48,6 @@ export default async function TrackingPage() {
     }
   } catch (err) {
     console.warn('Error fetching tracking sites:', err);
-  }
-
-  // Fallback demo
-  if (sites.length === 0 && !activeClientId) {
-    activeClientId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    sites = [
-      {
-        id: 'site-demo-1',
-        client_id: activeClientId,
-        domain: 'demo-cliente.com',
-        created_at: new Date().toISOString(),
-      },
-    ];
   }
 
   return (

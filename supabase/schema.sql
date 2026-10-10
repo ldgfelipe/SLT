@@ -182,3 +182,28 @@ values
   ('44444444-4444-4444-4444-444444444443', '33333333-3333-3333-3333-333333333333', 'Negociación Legal', 3),
   ('44444444-4444-4444-4444-444444444444', '33333333-3333-3333-3333-333333333333', 'Firmado', 4)
 on conflict (id) do nothing;
+-- 10. TABLA USUARIOS (Roles: root y client_admin)
+create table if not exists users (
+  id uuid primary key default uuid_generate_v4(),
+  name text not null,
+  email text unique not null,
+  password_hash text not null,
+  role text default 'client_admin' check (role in ('root', 'client_admin')) not null,
+  client_id uuid references clients(id) on delete set null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table users enable row level security;
+drop policy if exists "Public access to users" on users;
+create policy "Public access to users" on users for all using (true) with check (true);
+
+-- Usuario Root por defecto: admin@slt.com / admin123 (SHA-256 de "admin123" = 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9)
+insert into users (id, name, email, password_hash, role, client_id)
+values (
+  '99999999-9999-9999-9999-999999999999',
+  'SuperAdmin Root',
+  'admin@slt.com',
+  '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',
+  'root',
+  null
+) on conflict (email) do nothing;

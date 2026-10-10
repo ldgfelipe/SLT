@@ -1,11 +1,11 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export async function createTrackingSite(clientId: string, domain: string) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
     const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '').trim();
 
     const { data, error } = await supabase
@@ -28,7 +28,7 @@ export async function createTrackingSite(clientId: string, domain: string) {
 
 export async function deleteTrackingSite(siteId: string) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
     const { error } = await supabase.from('tracking_sites').delete().eq('id', siteId);
     if (error) return { success: false, error: error.message };
 

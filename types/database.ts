@@ -5,6 +5,18 @@ export interface Client {
   created_at: string;
 }
 
+export type UserRole = 'root' | 'client_admin';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  client_id?: string | null;
+  client?: Client | null;
+  created_at: string;
+}
+
 export interface Contact {
   id: string;
   client_id: string;

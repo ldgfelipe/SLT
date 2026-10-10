@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export async function createForm(clientId: string, data: {
@@ -9,7 +9,7 @@ export async function createForm(clientId: string, data: {
   pipeline_id: string;
 }) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
     const { data: form, error } = await supabase
       .from('forms')
       .insert({
@@ -38,7 +38,7 @@ export async function createForm(clientId: string, data: {
 
 export async function deleteForm(formId: string) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
     const { error } = await supabase.from('forms').delete().eq('id', formId);
     if (error) return { success: false, error: error.message };
 

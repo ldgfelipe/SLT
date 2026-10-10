@@ -1,6 +1,5 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -22,7 +21,7 @@ export async function setActiveClient(clientId: string) {
 
 export async function createClientAccount(name: string, slug?: string) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
     const cleanSlug = (slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-')).trim();
 
     // 1. Crear el cliente
@@ -74,7 +73,7 @@ export async function deleteClientAccount(clientId: string) {
   try {
     const supabase = getSupabaseAdmin();
 
-    // 1. Verificar si el cliente tiene datos reales (contactos, deals o sitios de tracking)
+    // 1. Verificar si el cliente tiene datos reales
     const [contactsRes, dealsRes, sitesRes] = await Promise.all([
       supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
       supabase.from('deals').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
@@ -92,7 +91,7 @@ export async function deleteClientAccount(clientId: string) {
       };
     }
 
-    // 2. Si está libre de datos reales, eliminar pipelines primero para evitar cualquier bloqueo de constraint
+    // 2. Eliminar pipelines y etapas vacías
     await supabase.from('pipelines').delete().eq('client_id', clientId);
 
     // 3. Eliminar el registro del cliente
@@ -102,7 +101,6 @@ export async function deleteClientAccount(clientId: string) {
       return { success: false, error: deleteError.message };
     }
 
-    // Si el cliente eliminado era el que estaba activo en la cookie, limpiarlo
     const cookieStore = await cookies();
     const activeClientId = cookieStore.get('slt_active_client_id')?.value;
     if (activeClientId === clientId) {

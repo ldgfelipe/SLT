@@ -1,12 +1,17 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { CreateFormDialog } from '@/components/forms/CreateFormDialog';
 import { FormsList } from '@/components/forms/FormsList';
+import { getCurrentUser } from '@/app/actions/auth';
 import { Form, Stage, Client } from '@/types/database';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export const instant = false;
 
 export default async function FormsPage() {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) redirect('/login');
+
   let forms: Form[] = [];
   let stages: Stage[] = [];
   let currentClient: Client | null = null;
@@ -16,18 +21,25 @@ export default async function FormsPage() {
     const cookieStore = await cookies();
     activeClientId = cookieStore.get('slt_active_client_id')?.value;
 
-    const supabase = await createServerSupabaseClient();
-    const { data: clients } = await supabase.from('clients').select('*').order('name');
+    const supabase = getSupabaseAdmin();
+    
+    let clientQuery = supabase.from('clients').select('*').order('name');
+    if (currentUser.role === 'client_admin' && currentUser.client_id) {
+      clientQuery = clientQuery.eq('id', currentUser.client_id);
+    }
+    const { data: clients } = await clientQuery;
 
     if (clients && clients.length > 0) {
-      if (!activeClientId || !clients.some((c) => c.id === activeClientId)) {
+      if (currentUser.role === 'client_admin' && currentUser.client_id) {
+        activeClientId = currentUser.client_id;
+      } else if (!activeClientId || !clients.some((c) => c.id === activeClientId)) {
         activeClientId = clients[0].id;
       }
       currentClient = clients.find((c) => c.id === activeClientId) || clients[0];
     }
 
     if (activeClientId) {
-      // Obtener formularios de este cliente
+      // 1. Formularios del cliente
       const { data: formsData } = await supabase
         .from('forms')
         .select('*')
@@ -36,7 +48,7 @@ export default async function FormsPage() {
 
       if (formsData) forms = formsData;
 
-      // Obtener etapas de los pipelines del cliente para asignación
+      // 2. Etapas de los pipelines del cliente
       const { data: pipelines } = await supabase
         .from('pipelines')
         .select('id, stages(*)')
@@ -48,29 +60,6 @@ export default async function FormsPage() {
     }
   } catch (err) {
     console.warn('Error fetching forms:', err);
-  }
-
-  // Fallback demo
-  if (stages.length === 0) {
-    stages = [
-      { id: 'st-1', pipeline_id: 'p1', name: 'Lead Entrante', order: 1, deals: [] },
-      { id: 'st-2', pipeline_id: 'p1', name: 'Contacto', order: 2, deals: [] },
-    ];
-  }
-
-  if (forms.length === 0 && !activeClientId) {
-    activeClientId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    forms = [
-      {
-        id: 'form-demo-1',
-        client_id: activeClientId,
-        pipeline_id: 'p1',
-        stage_id: 'st-1',
-        name: 'Formulario Demo Landing Page',
-        fields_config: [],
-        created_at: new Date().toISOString(),
-      },
-    ];
   }
 
   return (

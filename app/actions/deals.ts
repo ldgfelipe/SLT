@@ -1,11 +1,11 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export async function updateDealStage(dealId: string, targetStageId: string) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
 
     const { error } = await supabase
       .from('deals')

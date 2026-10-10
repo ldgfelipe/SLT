@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export async function createContact(clientId: string, formData: {
@@ -10,7 +10,7 @@ export async function createContact(clientId: string, formData: {
   phone?: string;
 }) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from('contacts')
       .insert({
@@ -34,7 +34,7 @@ export async function createContact(clientId: string, formData: {
 
 export async function deleteContact(contactId: string) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
     const { error } = await supabase.from('contacts').delete().eq('id', contactId);
     if (error) return { success: false, error: error.message };
 
