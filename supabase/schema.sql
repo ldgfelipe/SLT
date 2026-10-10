@@ -1,7 +1,7 @@
--- 1. EXTENSIÓN UUID
+-- 1. HABILITAR EXTENSIÓN UUID
 create extension if not exists "uuid-ossp";
 
--- 2. CLIENTES / WORKSPACES (Multitenancy)
+-- 2. TABLA CLIENTES / WORKSPACES (Multitenancy)
 create table if not exists clients (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
@@ -9,13 +9,25 @@ create table if not exists clients (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 3. PIPELINES (pertenece a un cliente)
+-- Inserción inicial de clientes base
+insert into clients (id, name, slug)
+values 
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Agencia Alpha', 'alpha'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Tech Solutions Corp', 'tech-corp')
+on conflict (id) do nothing;
+
+-- 3. MIGRAR O CREAR PIPELINES
 create table if not exists pipelines (
   id uuid primary key default uuid_generate_v4(),
-  client_id uuid references clients(id) on delete cascade not null,
   name text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Agregar client_id si no existe
+alter table pipelines add column if not exists client_id uuid references clients(id) on delete cascade;
+-- Asignar cliente por defecto a cualquier pipeline preexistente
+update pipelines set client_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' where client_id is null;
+alter table pipelines alter column client_id set not null;
 
 -- 4. STAGES
 create table if not exists stages (
@@ -26,22 +38,35 @@ create table if not exists stages (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 5. CONTACTS (pertenece a un cliente)
+-- 5. MIGRAR O CREAR CONTACTS
 create table if not exists contacts (
   id uuid primary key default uuid_generate_v4(),
-  client_id uuid references clients(id) on delete cascade not null,
   first_name text not null,
   last_name text,
   email text not null,
   phone text,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  unique (client_id, email)
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 6. DEALS
+-- Agregar client_id si no existe
+alter table contacts add column if not exists client_id uuid references clients(id) on delete cascade;
+update contacts set client_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' where client_id is null;
+alter table contacts alter column client_id set not null;
+
+-- Ajustar constraint único a (client_id, email)
+alter table contacts drop constraint if exists contacts_email_key;
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'contacts_client_id_email_key'
+  ) then
+    alter table contacts add constraint contacts_client_id_email_key unique (client_id, email);
+  end if;
+end $$;
+
+-- 6. MIGRAR O CREAR DEALS
 create table if not exists deals (
   id uuid primary key default uuid_generate_v4(),
-  client_id uuid references clients(id) on delete cascade not null,
   title text not null,
   value numeric(12, 2) default 0.00 not null,
   stage_id uuid references stages(id) on delete cascade not null,
@@ -50,10 +75,14 @@ create table if not exists deals (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 7. FORMS (pertenece a un cliente)
+-- Agregar client_id si no existe
+alter table deals add column if not exists client_id uuid references clients(id) on delete cascade;
+update deals set client_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' where client_id is null;
+alter table deals alter column client_id set not null;
+
+-- 7. MIGRAR O CREAR FORMS
 create table if not exists forms (
   id uuid primary key default uuid_generate_v4(),
-  client_id uuid references clients(id) on delete cascade not null,
   pipeline_id uuid references pipelines(id) on delete cascade not null,
   stage_id uuid references stages(id) on delete cascade not null,
   name text not null,
@@ -61,13 +90,22 @@ create table if not exists forms (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 8. TRACKING SITES (pertenece a un cliente)
+-- Agregar client_id si no existe
+alter table forms add column if not exists client_id uuid references clients(id) on delete cascade;
+update forms set client_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' where client_id is null;
+alter table forms alter column client_id set not null;
+
+-- 8. MIGRAR O CREAR TRACKING SITES
 create table if not exists tracking_sites (
   id uuid primary key default uuid_generate_v4(),
-  client_id uuid references clients(id) on delete cascade not null,
   domain text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Agregar client_id si no existe
+alter table tracking_sites add column if not exists client_id uuid references clients(id) on delete cascade;
+update tracking_sites set client_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' where client_id is null;
+alter table tracking_sites alter column client_id set not null;
 
 -- 9. TRACKING EVENTS
 create table if not exists tracking_events (
@@ -80,7 +118,7 @@ create table if not exists tracking_events (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- ÍNDICES
+-- ÍNDICES (seguros con if not exists)
 create index if not exists idx_pipelines_client on pipelines(client_id);
 create index if not exists idx_stages_pipeline_order on stages(pipeline_id, "order");
 create index if not exists idx_contacts_client_email on contacts(client_id, email);
@@ -97,7 +135,18 @@ alter table forms enable row level security;
 alter table tracking_sites enable row level security;
 alter table tracking_events enable row level security;
 
--- POLÍTICAS
+-- POLÍTICAS (droppear primero para permitir re-ejecución sin error)
+drop policy if exists "Authenticated access to clients" on clients;
+drop policy if exists "Authenticated access to pipelines" on pipelines;
+drop policy if exists "Authenticated access to stages" on stages;
+drop policy if exists "Authenticated access to contacts" on contacts;
+drop policy if exists "Authenticated access to deals" on deals;
+drop policy if exists "Authenticated access to forms" on forms;
+drop policy if exists "Authenticated access to tracking_sites" on tracking_sites;
+drop policy if exists "Authenticated access to tracking_events" on tracking_events;
+drop policy if exists "Allow public tracking events inserts" on tracking_events;
+drop policy if exists "Allow public tracking site verification" on tracking_sites;
+
 create policy "Authenticated access to clients" on clients for all to authenticated using (true);
 create policy "Authenticated access to pipelines" on pipelines for all to authenticated using (true);
 create policy "Authenticated access to stages" on stages for all to authenticated using (true);
@@ -106,21 +155,14 @@ create policy "Authenticated access to deals" on deals for all to authenticated 
 create policy "Authenticated access to forms" on forms for all to authenticated using (true);
 create policy "Authenticated access to tracking_sites" on tracking_sites for all to authenticated using (true);
 create policy "Authenticated access to tracking_events" on tracking_events for all to authenticated using (true);
-
 create policy "Allow public tracking events inserts" on tracking_events for insert to anon with check (true);
 create policy "Allow public tracking site verification" on tracking_sites for select to anon using (true);
 
--- SEED / DATOS DEMO (2 clientes distintos para pruebas)
-insert into clients (id, name, slug)
-values 
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Agencia Alpha', 'alpha'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Tech Solutions Corp', 'tech-corp')
-on conflict (id) do nothing;
-
--- Pipelines y Stages para Agencia Alpha
+-- SEED / DATOS DEMO
+-- Pipeline y Etapas para Agencia Alpha
 insert into pipelines (id, client_id, name)
 values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Pipeline Ventas Alpha')
-on conflict (id) do nothing;
+on conflict (id) do update set client_id = excluded.client_id;
 
 insert into stages (id, pipeline_id, name, "order")
 values 
@@ -130,10 +172,10 @@ values
   ('22222222-2222-2222-2222-222222222224', '11111111-1111-1111-1111-111111111111', 'Cerrado', 4)
 on conflict (id) do nothing;
 
--- Pipelines y Stages para Tech Solutions Corp
+-- Pipeline y Etapas para Tech Solutions Corp
 insert into pipelines (id, client_id, name)
 values ('33333333-3333-3333-3333-333333333333', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Enterprise Deals')
-on conflict (id) do nothing;
+on conflict (id) do update set client_id = excluded.client_id;
 
 insert into stages (id, pipeline_id, name, "order")
 values 
