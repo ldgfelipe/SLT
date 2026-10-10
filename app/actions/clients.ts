@@ -8,11 +8,14 @@ export async function setActiveClient(clientId: string) {
   const cookieStore = await cookies();
   cookieStore.set('slt_active_client_id', clientId, {
     path: '/',
-    maxAge: 60 * 60 * 24 * 365, // 1 año
+    maxAge: 60 * 60 * 24 * 365,
     sameSite: 'lax',
   });
   revalidatePath('/dashboard');
   revalidatePath('/dashboard/clients');
+  revalidatePath('/dashboard/contacts');
+  revalidatePath('/dashboard/forms');
+  revalidatePath('/dashboard/tracking');
   return { success: true };
 }
 
@@ -63,5 +66,49 @@ export async function createClientAccount(name: string, slug?: string) {
     return { success: true, client: newClient };
   } catch (err: any) {
     return { success: false, error: err.message || 'Error al crear cliente' };
+  }
+}
+
+export async function deleteClientAccount(clientId: string) {
+  try {
+    const supabase = await createServerSupabaseClient();
+
+    // Verificar si el cliente tiene datos reales (contactos, deals o eventos)
+    const [contactsRes, dealsRes, eventsRes] = await Promise.all([
+      supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
+      supabase.from('deals').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
+      supabase.from('tracking_sites').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
+    ]);
+
+    const totalContacts = contactsRes.count || 0;
+    const totalDeals = dealsRes.count || 0;
+    const totalSites = eventsRes.count || 0;
+
+    if (totalContacts > 0 || totalDeals > 0 || totalSites > 0) {
+      return {
+        success: false,
+        error: `No se puede eliminar el cliente porque tiene datos asociados (${totalContacts} contactos, ${totalDeals} oportunidades, ${totalSites} sitios de tracking).`,
+      };
+    }
+
+    // Si no tiene datos críticos, eliminar el cliente (sus pipelines/stages vacíos se eliminan por cascade)
+    const { error: deleteError } = await supabase.from('clients').delete().eq('id', clientId);
+
+    if (deleteError) {
+      return { success: false, error: deleteError.message };
+    }
+
+    // Si el cliente eliminado era el activo, resetear la cookie
+    const cookieStore = await cookies();
+    const activeClientId = cookieStore.get('slt_active_client_id')?.value;
+    if (activeClientId === clientId) {
+      cookieStore.delete('slt_active_client_id');
+    }
+
+    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/clients');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error al eliminar cliente' };
   }
 }

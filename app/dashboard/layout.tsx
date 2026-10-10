@@ -86,18 +86,29 @@ export default async function DashboardLayout({
             Gestión de Clientes
           </Link>
 
-          <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-400 dark:text-slate-500 cursor-not-allowed">
+          <Link
+            href="/dashboard/contacts"
+            className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"
+          >
             <Users className="w-4 h-4" />
             Contactos
-          </div>
-          <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-400 dark:text-slate-500 cursor-not-allowed">
+          </Link>
+
+          <Link
+            href="/dashboard/forms"
+            className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"
+          >
             <FileText className="w-4 h-4" />
             Formularios
-          </div>
-          <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-400 dark:text-slate-500 cursor-not-allowed">
+          </Link>
+
+          <Link
+            href="/dashboard/tracking"
+            className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"
+          >
             <Activity className="w-4 h-4" />
             Pixel & Tracking
-          </div>
+          </Link>
         </nav>
 
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-400 flex items-center justify-between">
