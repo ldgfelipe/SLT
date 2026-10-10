@@ -1,5 +1,13 @@
+export interface Client {
+  id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+}
+
 export interface Contact {
   id: string;
+  client_id: string;
   first_name: string;
   last_name: string | null;
   email: string;
@@ -9,6 +17,7 @@ export interface Contact {
 
 export interface Deal {
   id: string;
+  client_id: string;
   title: string;
   value: number;
   stage_id: string;
@@ -28,12 +37,25 @@ export interface Stage {
 
 export interface Pipeline {
   id: string;
+  client_id: string;
   name: string;
+  created_at: string;
+  stages?: Stage[];
+}
+
+export interface Form {
+  id: string;
+  client_id: string;
+  pipeline_id: string;
+  stage_id: string;
+  name: string;
+  fields_config: any[];
   created_at: string;
 }
 
 export interface TrackingSite {
   id: string;
+  client_id: string;
   domain: string;
   created_at: string;
 }

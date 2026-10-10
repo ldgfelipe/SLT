@@ -33,7 +33,7 @@ export async function POST(
     // 1. Obtener la configuración del formulario
     const { data: form, error: formError } = await supabaseAdmin
       .from('forms')
-      .select('id, pipeline_id, stage_id, name')
+      .select('id, client_id, pipeline_id, stage_id, name')
       .eq('id', formId)
       .single();
 
@@ -44,10 +44,11 @@ export async function POST(
       );
     }
 
-    // 2. Buscar o crear el contacto
+    // 2. Buscar o crear el contacto aislado por cliente
     let { data: contact } = await supabaseAdmin
       .from('contacts')
       .select('id')
+      .eq('client_id', form.client_id)
       .eq('email', email)
       .maybeSingle();
 
@@ -55,6 +56,7 @@ export async function POST(
       const { data: newContact, error: createContactError } = await supabaseAdmin
         .from('contacts')
         .insert({
+          client_id: form.client_id,
           first_name,
           last_name: last_name || null,
           email,
@@ -72,13 +74,14 @@ export async function POST(
       contact = newContact;
     }
 
-    // 3. Crear el deal asignado a la etapa configurada
+    // 3. Crear el deal asignado a la etapa y cliente configurados
     const dealTitle = title || `Nuevo Lead: ${first_name} ${last_name || ''}`.trim();
     const dealValue = typeof value === 'number' ? value : 0;
 
     const { data: deal, error: dealError } = await supabaseAdmin
       .from('deals')
       .insert({
+        client_id: form.client_id,
         title: dealTitle,
         value: dealValue,
         stage_id: form.stage_id,
