@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { CreateClientDialog } from '@/components/clients/CreateClientDialog';
 import { ClientsList } from '@/components/clients/ClientsList';
 import { cookies } from 'next/headers';
@@ -13,25 +14,31 @@ export default async function ClientsPage() {
     const cookieStore = await cookies();
     activeClientId = cookieStore.get('slt_active_client_id')?.value;
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
     const { data: clientsData } = await supabase
       .from('clients')
-      .select('*, contacts(count), deals(count)')
+      .select('id, name, slug, created_at')
       .order('created_at', { ascending: false });
 
     if (clientsData && clientsData.length > 0) {
-      clientsWithCounts = clientsData.map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        created_at: c.created_at,
-        _counts: {
-          contacts: c.contacts?.[0]?.count || 0,
-          deals: c.deals?.[0]?.count || 0,
-        },
-      }));
+      // Obtener conteos de forma segura para cada cliente
+      const countsPromises = clientsData.map(async (c: any) => {
+        const [contactsCount, dealsCount] = await Promise.all([
+          supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('client_id', c.id),
+          supabase.from('deals').select('id', { count: 'exact', head: true }).eq('client_id', c.id),
+        ]);
+        return {
+          ...c,
+          _counts: {
+            contacts: contactsCount.count || 0,
+            deals: dealsCount.count || 0,
+          },
+        };
+      });
 
-      if (!activeClientId) {
+      clientsWithCounts = await Promise.all(countsPromises);
+
+      if (!activeClientId || !clientsWithCounts.some((c) => c.id === activeClientId)) {
         activeClientId = clientsWithCounts[0].id;
       }
     }

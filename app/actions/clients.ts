@@ -1,6 +1,7 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
@@ -71,10 +72,10 @@ export async function createClientAccount(name: string, slug?: string) {
 
 export async function deleteClientAccount(clientId: string) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = getSupabaseAdmin();
 
-    // Verificar si el cliente tiene datos reales (contactos, deals o eventos)
-    const [contactsRes, dealsRes, eventsRes] = await Promise.all([
+    // 1. Verificar si el cliente tiene datos reales (contactos, deals o sitios de tracking)
+    const [contactsRes, dealsRes, sitesRes] = await Promise.all([
       supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
       supabase.from('deals').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
       supabase.from('tracking_sites').select('id', { count: 'exact', head: true }).eq('client_id', clientId),
@@ -82,7 +83,7 @@ export async function deleteClientAccount(clientId: string) {
 
     const totalContacts = contactsRes.count || 0;
     const totalDeals = dealsRes.count || 0;
-    const totalSites = eventsRes.count || 0;
+    const totalSites = sitesRes.count || 0;
 
     if (totalContacts > 0 || totalDeals > 0 || totalSites > 0) {
       return {
@@ -91,14 +92,17 @@ export async function deleteClientAccount(clientId: string) {
       };
     }
 
-    // Si no tiene datos críticos, eliminar el cliente (sus pipelines/stages vacíos se eliminan por cascade)
+    // 2. Si está libre de datos reales, eliminar pipelines primero para evitar cualquier bloqueo de constraint
+    await supabase.from('pipelines').delete().eq('client_id', clientId);
+
+    // 3. Eliminar el registro del cliente
     const { error: deleteError } = await supabase.from('clients').delete().eq('id', clientId);
 
     if (deleteError) {
       return { success: false, error: deleteError.message };
     }
 
-    // Si el cliente eliminado era el activo, resetear la cookie
+    // Si el cliente eliminado era el que estaba activo en la cookie, limpiarlo
     const cookieStore = await cookies();
     const activeClientId = cookieStore.get('slt_active_client_id')?.value;
     if (activeClientId === clientId) {

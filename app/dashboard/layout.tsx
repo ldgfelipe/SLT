@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { LayoutDashboard, Users, FileText, Activity, Building2 } from 'lucide-react';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { cookies } from 'next/headers';
 import { ClientSwitcher } from '@/components/layout/ClientSwitcher';
 import { Client } from '@/types/database';
@@ -19,15 +20,17 @@ export default async function DashboardLayout({
     const cookieStore = await cookies();
     activeClientId = cookieStore.get('slt_active_client_id')?.value;
 
-    const supabase = await createServerSupabaseClient();
-    const { data: clientsData } = await supabase
+    const supabase = getSupabaseAdmin();
+    const { data: clientsData, error: clientFetchError } = await supabase
       .from('clients')
       .select('*')
       .order('name');
 
-    if (clientsData && clientsData.length > 0) {
+    if (clientFetchError) {
+      console.error('Error fetching clients in layout:', clientFetchError);
+    } else if (clientsData && clientsData.length > 0) {
       clients = clientsData;
-      if (!activeClientId) {
+      if (!activeClientId || !clients.some((c) => c.id === activeClientId)) {
         activeClientId = clients[0].id;
       }
     }

@@ -147,16 +147,14 @@ drop policy if exists "Authenticated access to tracking_events" on tracking_even
 drop policy if exists "Allow public tracking events inserts" on tracking_events;
 drop policy if exists "Allow public tracking site verification" on tracking_sites;
 
-create policy "Authenticated access to clients" on clients for all to authenticated using (true);
-create policy "Authenticated access to pipelines" on pipelines for all to authenticated using (true);
-create policy "Authenticated access to stages" on stages for all to authenticated using (true);
-create policy "Authenticated access to contacts" on contacts for all to authenticated using (true);
-create policy "Authenticated access to deals" on deals for all to authenticated using (true);
-create policy "Authenticated access to forms" on forms for all to authenticated using (true);
-create policy "Authenticated access to tracking_sites" on tracking_sites for all to authenticated using (true);
-create policy "Authenticated access to tracking_events" on tracking_events for all to authenticated using (true);
-create policy "Allow public tracking events inserts" on tracking_events for insert to anon with check (true);
-create policy "Allow public tracking site verification" on tracking_sites for select to anon using (true);
+create policy "Public access to clients" on clients for all using (true) with check (true);
+create policy "Public access to pipelines" on pipelines for all using (true) with check (true);
+create policy "Public access to stages" on stages for all using (true) with check (true);
+create policy "Public access to contacts" on contacts for all using (true) with check (true);
+create policy "Public access to deals" on deals for all using (true) with check (true);
+create policy "Public access to forms" on forms for all using (true) with check (true);
+create policy "Public access to tracking_sites" on tracking_sites for all using (true) with check (true);
+create policy "Public access to tracking_events" on tracking_events for all using (true) with check (true);
 
 -- SEED / DATOS DEMO
 -- Pipeline y Etapas para Agencia Alpha
