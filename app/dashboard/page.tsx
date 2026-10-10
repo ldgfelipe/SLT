@@ -128,7 +128,7 @@ export default async function DashboardPage() {
 
         {connectionWarning && (
           <div className="text-xs bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-            <span>⚠️ Modo Vista Previa: Configura tus credenciales de Supabase en <code className="font-mono">.env.local</code></span>
+            <span>⚠️ Modo Vista Previa: Configura tus variables de Supabase en <strong>Vercel Settings &gt; Environment Variables</strong></span>
           </div>
         )}
       </div>
