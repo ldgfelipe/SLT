@@ -137,13 +137,21 @@ alter table tracking_events enable row level security;
 
 -- POLÍTICAS (droppear primero para permitir re-ejecución sin error)
 drop policy if exists "Authenticated access to clients" on clients;
+drop policy if exists "Public access to clients" on clients;
 drop policy if exists "Authenticated access to pipelines" on pipelines;
+drop policy if exists "Public access to pipelines" on pipelines;
 drop policy if exists "Authenticated access to stages" on stages;
+drop policy if exists "Public access to stages" on stages;
 drop policy if exists "Authenticated access to contacts" on contacts;
+drop policy if exists "Public access to contacts" on contacts;
 drop policy if exists "Authenticated access to deals" on deals;
+drop policy if exists "Public access to deals" on deals;
 drop policy if exists "Authenticated access to forms" on forms;
+drop policy if exists "Public access to forms" on forms;
 drop policy if exists "Authenticated access to tracking_sites" on tracking_sites;
+drop policy if exists "Public access to tracking_sites" on tracking_sites;
 drop policy if exists "Authenticated access to tracking_events" on tracking_events;
+drop policy if exists "Public access to tracking_events" on tracking_events;
 drop policy if exists "Allow public tracking events inserts" on tracking_events;
 drop policy if exists "Allow public tracking site verification" on tracking_sites;
 
