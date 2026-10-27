@@ -27,7 +27,8 @@ export async function getCurrentUser(): Promise<AppUser | null> {
     if (!user) return null;
 
     return user as AppUser;
-  } catch {
+  } catch (err) {
+    console.error('[getCurrentUser] error:', err);
     return null;
   }
 }

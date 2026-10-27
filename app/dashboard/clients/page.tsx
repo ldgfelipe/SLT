@@ -1,37 +1,62 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { CreateClientDialog } from '@/components/clients/CreateClientDialog';
 import { ClientsList } from '@/components/clients/ClientsList';
+import { getCurrentUser } from '@/app/actions/auth';
+import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 
 export const instant = false;
 
 export default async function ClientsPage() {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) redirect('/login');
+  if (currentUser.role !== 'root') redirect('/dashboard');
+
   let clientsWithCounts: any[] = [];
   let activeClientId: string | undefined;
+  let fetchError: string | null = null;
 
   try {
     const cookieStore = await cookies();
     activeClientId = cookieStore.get('slt_active_client_id')?.value;
 
     const supabase = getSupabaseAdmin();
-    const { data: clientsData } = await supabase
+    const { data: clientsData, error } = await supabase
       .from('clients')
       .select('id, name, slug, created_at')
       .order('created_at', { ascending: false });
 
-    if (clientsData && clientsData.length > 0) {
-      // Obtener conteos de forma segura para cada cliente
+    if (error) {
+      fetchError = error.message;
+      console.error('[ClientsPage] fetch error:', error);
+    } else if (clientsData && clientsData.length > 0) {
+      // Obtener conteos de forma segura para cada cliente (no romper si faltan tablas)
       const countsPromises = clientsData.map(async (c: any) => {
-        const [contactsCount, dealsCount] = await Promise.all([
-          supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('client_id', c.id),
-          supabase.from('deals').select('id', { count: 'exact', head: true }).eq('client_id', c.id),
-        ]);
+        let contacts = 0;
+        let deals = 0;
+        try {
+          const { count } = await supabase
+            .from('contacts')
+            .select('id', { count: 'exact', head: true })
+            .eq('client_id', c.id);
+          contacts = count || 0;
+        } catch (e) {
+          console.warn('[ClientsPage] contacts count error for', c.id, e);
+        }
+        try {
+          const { count } = await supabase
+            .from('deals')
+            .select('id', { count: 'exact', head: true })
+            .eq('client_id', c.id);
+          deals = count || 0;
+        } catch (e) {
+          console.warn('[ClientsPage] deals count error for', c.id, e);
+        }
         return {
           ...c,
           _counts: {
-            contacts: contactsCount.count || 0,
-            deals: dealsCount.count || 0,
+            contacts,
+            deals,
           },
         };
       });
@@ -42,37 +67,9 @@ export default async function ClientsPage() {
         activeClientId = clientsWithCounts[0].id;
       }
     }
-  } catch (err) {
-    console.warn('Error fetching clients:', err);
-  }
-
-  if (clientsWithCounts.length === 0) {
-    clientsWithCounts = [
-      {
-        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-        name: 'Agencia Alpha',
-        slug: 'alpha',
-        created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-        _counts: { contacts: 2, deals: 1 },
-      },
-      {
-        id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-        name: 'Tech Solutions Corp',
-        slug: 'tech-corp',
-        created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-        _counts: { contacts: 1, deals: 1 },
-      },
-      {
-        id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-        name: 'Cliente Vacío (Prueba Eliminar)',
-        slug: 'cliente-vacio',
-        created_at: new Date().toISOString(),
-        _counts: { contacts: 0, deals: 0 },
-      },
-    ];
-    if (!activeClientId) {
-      activeClientId = clientsWithCounts[0].id;
-    }
+  } catch (err: any) {
+    fetchError = err.message || 'Error desconocido';
+    console.warn('[ClientsPage] Error fetching clients:', err);
   }
 
   return (
@@ -88,7 +85,18 @@ export default async function ClientsPage() {
         <CreateClientDialog />
       </div>
 
+      {fetchError && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900 p-4">
+          <p className="text-sm font-semibold text-rose-700 dark:text-rose-400">Error al cargar clientes</p>
+          <p className="text-xs text-rose-600 dark:text-rose-500 mt-1 font-mono">{fetchError}</p>
+          <p className="text-xs text-rose-500 dark:text-rose-600 mt-2">
+            Verifica que la tabla <code>clients</code> exista en Supabase y que las variables de entorno estén configuradas en Vercel.
+          </p>
+        </div>
+      )}
+
       <ClientsList clients={clientsWithCounts} activeClientId={activeClientId} />
     </div>
   );
 }
+

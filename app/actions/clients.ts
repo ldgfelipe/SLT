@@ -11,6 +11,7 @@ export async function setActiveClient(clientId: string) {
     maxAge: 60 * 60 * 24 * 365,
     sameSite: 'lax',
   });
+  revalidatePath('/dashboard', 'layout');
   revalidatePath('/dashboard');
   revalidatePath('/dashboard/clients');
   revalidatePath('/dashboard/contacts');
@@ -61,6 +62,7 @@ export async function createClientAccount(name: string, slug?: string) {
     // Activar el cliente recién creado
     await setActiveClient(newClient.id);
 
+    revalidatePath('/dashboard', 'layout');
     revalidatePath('/dashboard');
     revalidatePath('/dashboard/clients');
     return { success: true, client: newClient };
@@ -91,8 +93,16 @@ export async function deleteClientAccount(clientId: string) {
       };
     }
 
-    // 2. Eliminar pipelines y etapas vacías
-    await supabase.from('pipelines').delete().eq('client_id', clientId);
+    // 2. Eliminar en orden seguro para evitar violaciones de FK
+    // forms -> stages -> pipelines -> clients
+    const formsResult = await supabase.from('forms').delete().eq('client_id', clientId);
+    if (formsResult.error) console.error('[deleteClient] forms delete error:', formsResult.error);
+
+    const trackingResult = await supabase.from('tracking_sites').delete().eq('client_id', clientId);
+    if (trackingResult.error) console.error('[deleteClient] tracking_sites delete error:', trackingResult.error);
+
+    const pipelinesResult = await supabase.from('pipelines').delete().eq('client_id', clientId);
+    if (pipelinesResult.error) console.error('[deleteClient] pipelines delete error:', pipelinesResult.error);
 
     // 3. Eliminar el registro del cliente
     const { error: deleteError } = await supabase.from('clients').delete().eq('id', clientId);
@@ -107,6 +117,7 @@ export async function deleteClientAccount(clientId: string) {
       cookieStore.delete('slt_active_client_id');
     }
 
+    revalidatePath('/dashboard', 'layout');
     revalidatePath('/dashboard');
     revalidatePath('/dashboard/clients');
     return { success: true };

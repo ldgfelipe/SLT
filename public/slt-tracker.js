@@ -5,9 +5,29 @@
   var SITE_ID = SCRIPT_TAG ? SCRIPT_TAG.getAttribute('data-site-id') : null;
   var API_HOST = SCRIPT_TAG ? SCRIPT_TAG.getAttribute('data-host') || '' : '';
   var STORAGE_KEY = 'slt_vid';
+  var HONEYPOT_FIELD = 'hp';
 
   if (!SITE_ID) {
     console.warn('[SLT Tracker] Atributo data-site-id faltante.');
+    return;
+  }
+
+  // Descartar bots conocidos en el cliente
+  function isBot() {
+    try {
+      if (navigator.webdriver) return true;
+      var ua = (navigator.userAgent || '').toLowerCase();
+      if (/bot|crawl|spider|slurp|mediapartners|facebookexternalhit|headless|phantom|selenium|puppeteer/i.test(ua)) {
+        return true;
+      }
+      // Señales típicas de automatización
+      if (window.callPhantom || window._phantom || window.__nightmare) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  if (isBot()) {
+    // No registrar tráfico de bots
     return;
   }
 
@@ -41,6 +61,8 @@
       event_type: eventType || 'pageview',
       url: window.location.href,
       contact_id: (customData && customData.contact_id) || null,
+      // Honey pot: debe viajar vacío. Los bots que llamen directo al API sin este campo o con valor serán descartados.
+      hp: (customData && customData.hp) || '',
     };
 
     var endpoint = (API_HOST ? API_HOST.replace(/\/$/, '') : '') + '/api/track';

@@ -22,7 +22,7 @@ export function FormsList({ forms, stages }: FormsListProps) {
 
   const copyEmbedCode = (formId: string) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tu-dominio.vercel.app';
-    const code = `<form action="${origin}/api/forms/${formId}/submit" method="POST">\n  <input type="text" name="first_name" placeholder="Nombre" required />\n  <input type="text" name="last_name" placeholder="Apellido" />\n  <input type="email" name="email" placeholder="Email" required />\n  <input type="tel" name="phone" placeholder="Teléfono" />\n  <button type="submit">Enviar</button>\n</form>`;
+    const code = `<form action="${origin}/api/forms/${formId}/submit" method="POST">\n  <input type="text" name="first_name" placeholder="Nombre" required />\n  <input type="text" name="last_name" placeholder="Apellido" />\n  <input type="email" name="email" placeholder="Email" required />\n  <input type="tel" name="phone" placeholder="Teléfono" />\n  <!-- Honey pot anti-bot (no debe llenarse) -->\n  <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;" />\n  <button type="submit">Enviar</button>\n</form>`;
     navigator.clipboard.writeText(code);
     setCopiedId(formId);
     setTimeout(() => setCopiedId(null), 2500);

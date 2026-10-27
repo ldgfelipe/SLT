@@ -59,6 +59,14 @@ export function ClientsList({ clients, activeClientId }: ClientsListProps) {
         </div>
       )}
 
+      {clients.length === 0 && (
+        <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-8 text-center">
+          <Building2 className="w-8 h-8 mx-auto text-slate-400 mb-3" />
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No hay clientes registrados todavía</p>
+          <p className="text-xs text-slate-500 mt-1">Crea tu primer cliente con el botón “Nuevo Cliente”.</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {clients.map((client) => {
           const isActive = client.id === activeClientId;
@@ -88,11 +96,13 @@ export function ClientsList({ clients, activeClientId }: ClientsListProps) {
                     )}
 
                     <button
-                      onClick={() => handleDelete(client.id, client.name)}
-                      disabled={isPending || isDeletingThis}
+                      onClick={() => !hasData && handleDelete(client.id, client.name)}
+                      disabled={isPending || isDeletingThis || hasData}
                       title={hasData ? 'No se puede eliminar: tiene datos asociados' : 'Eliminar cliente sin datos'}
-                      className={`p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition ${
-                        hasData ? 'opacity-40 cursor-not-allowed' : ''
+                      className={`p-1.5 rounded-lg transition ${
+                        hasData
+                          ? 'opacity-30 cursor-not-allowed text-slate-400'
+                          : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer'
                       }`}
                     >
                       {isDeletingThis ? (

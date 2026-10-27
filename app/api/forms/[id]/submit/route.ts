@@ -19,7 +19,12 @@ export async function POST(
     const { id: formId } = await params;
     const body = await req.json();
 
-    const { first_name, last_name, email, phone, title, value } = body;
+    const { first_name, last_name, email, phone, title, value, hp, website, visitor_id, site_id } = body;
+
+    // Honey pot: si el campo oculto viene con valor, se asume bot y se descarta silenciosamente
+    if ((typeof hp === 'string' && hp.trim() !== '') || (typeof website === 'string' && website.trim() !== '')) {
+      return NextResponse.json({ success: true }, { status: 201, headers: corsHeaders });
+    }
 
     const supabaseAdmin = getSupabaseAdmin();
 
@@ -96,6 +101,33 @@ export async function POST(
         { error: dealError.message },
         { status: 500, headers: corsHeaders }
       );
+    }
+
+    // Registrar conversión de tracking para usuarios reales que envían el formulario
+    if (visitor_id) {
+      try {
+        let trackingSiteId = site_id || null;
+        if (!trackingSiteId) {
+          const { data: site } = await supabaseAdmin
+            .from('tracking_sites')
+            .select('id')
+            .eq('client_id', form.client_id)
+            .limit(1)
+            .maybeSingle();
+          trackingSiteId = site?.id || null;
+        }
+        if (trackingSiteId) {
+          await supabaseAdmin.from('tracking_events').insert({
+            tracking_site_id: trackingSiteId,
+            visitor_id,
+            contact_id: contact?.id || null,
+            event_type: 'conversion',
+            url: req.headers.get('referer') || '',
+          });
+        }
+      } catch (trackErr) {
+        console.warn('[forms submit] tracking conversion error:', trackErr);
+      }
     }
 
     return NextResponse.json(
