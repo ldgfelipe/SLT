@@ -56,6 +56,18 @@ function isFilled(value: unknown): boolean {
   return true;
 }
 
+/** Detecta si PostgREST se queja de una columna inexistente (migración pendiente). */
+function isMissingColumnError(message: string | undefined, column: string): boolean {
+  const text = (message || '').toLowerCase();
+  return (
+    text.includes(column.toLowerCase()) &&
+    (text.includes('does not exist') ||
+      text.includes('could not find') ||
+      text.includes('schema cache') ||
+      text.includes('undefined column'))
+  );
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
@@ -150,57 +162,128 @@ export async function POST(
     }
 
     // 5. Buscar o crear contacto (clave: client_id + email)
-    const { data: existingContact, error: lookupError } = await supabaseAdmin
+    // Si la migración `contacts.data` aún no se aplicó, seguimos guardando el
+    // contacto sin datos extra en lugar de romper el formulario.
+    let hasDataColumn = true;
+    let existingContact: { id: string; data?: unknown } | null = null;
+
+    const lookup = await supabaseAdmin
       .from('contacts')
       .select('id, data')
       .eq('client_id', form.client_id)
       .eq('email', email)
       .maybeSingle();
 
-    if (lookupError) {
-      return NextResponse.json(
-        { error: lookupError.message },
-        { status: 500, headers: corsHeaders }
+    if (lookup.error) {
+      if (!isMissingColumnError(lookup.error.message, 'data')) {
+        return NextResponse.json(
+          { error: lookup.error.message },
+          { status: 500, headers: corsHeaders }
+        );
+      }
+
+      hasDataColumn = false;
+      console.warn(
+        '[forms submit] La columna contacts.data no existe. Ejecuta supabase/migrations/20261104_add_contacts_data.sql'
       );
+      const fallbackLookup = await supabaseAdmin
+        .from('contacts')
+        .select('id')
+        .eq('client_id', form.client_id)
+        .eq('email', email)
+        .maybeSingle();
+
+      if (fallbackLookup.error) {
+        return NextResponse.json(
+          { error: fallbackLookup.error.message },
+          { status: 500, headers: corsHeaders }
+        );
+      }
+      existingContact = fallbackLookup.data;
+    } else {
+      existingContact = lookup.data;
     }
 
     let contactId: string;
     if (existingContact?.id) {
-      const mergedData = {
-        ...((existingContact.data as Record<string, unknown> | null) ?? {}),
-        ...extras,
+      const baseUpdate = {
+        first_name: basics.first_name,
+        last_name: basics.last_name,
+        phone: basics.phone,
       };
-      const { error: updateError } = await supabaseAdmin
-        .from('contacts')
-        .update({
-          first_name: basics.first_name,
-          last_name: basics.last_name,
-          phone: basics.phone,
-          data: mergedData,
-        })
-        .eq('id', existingContact.id);
 
-      if (updateError) {
-        return NextResponse.json(
-          { error: updateError.message },
-          { status: 500, headers: corsHeaders }
-        );
+      if (hasDataColumn) {
+        const mergedData = {
+          ...((existingContact.data as Record<string, unknown> | null) ?? {}),
+          ...extras,
+        };
+        const { error: updateError } = await supabaseAdmin
+          .from('contacts')
+          .update({ ...baseUpdate, data: mergedData })
+          .eq('id', existingContact.id);
+
+        if (updateError && isMissingColumnError(updateError.message, 'data')) {
+          hasDataColumn = false;
+          const retry = await supabaseAdmin
+            .from('contacts')
+            .update(baseUpdate)
+            .eq('id', existingContact.id);
+          if (retry.error) {
+            return NextResponse.json(
+              { error: retry.error.message },
+              { status: 500, headers: corsHeaders }
+            );
+          }
+        } else if (updateError) {
+          return NextResponse.json(
+            { error: updateError.message },
+            { status: 500, headers: corsHeaders }
+          );
+        }
+      } else {
+        const { error: updateError } = await supabaseAdmin
+          .from('contacts')
+          .update(baseUpdate)
+          .eq('id', existingContact.id);
+        if (updateError) {
+          return NextResponse.json(
+            { error: updateError.message },
+            { status: 500, headers: corsHeaders }
+          );
+        }
       }
+
       contactId = existingContact.id;
     } else {
+      const insertPayload = hasDataColumn ? { ...basics, data: extras } : basics;
       const { data: newContact, error: createError } = await supabaseAdmin
         .from('contacts')
-        .insert({ ...basics, data: extras })
+        .insert(insertPayload)
         .select('id')
         .single();
 
-      if (createError || !newContact) {
+      if (createError && hasDataColumn && isMissingColumnError(createError.message, 'data')) {
+        hasDataColumn = false;
+        const retry = await supabaseAdmin
+          .from('contacts')
+          .insert(basics)
+          .select('id')
+          .single();
+        if (retry.error || !retry.data) {
+          return NextResponse.json(
+            { error: retry.error?.message || 'No se pudo crear el contacto.' },
+            { status: 500, headers: corsHeaders }
+          );
+        }
+        contactId = retry.data.id;
+      } else if (createError || !newContact) {
         return NextResponse.json(
           { error: createError?.message || 'No se pudo crear el contacto.' },
           { status: 500, headers: corsHeaders }
         );
+      } else {
+        contactId = newContact.id;
       }
-      contactId = newContact.id;
     }
 
     // 6. Crear deal en la etapa asignada
