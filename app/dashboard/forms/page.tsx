@@ -75,14 +75,14 @@ export default async function FormsPage() {
             )}
           </div>
           <p className="text-sm text-slate-500">
-            Genera formularios web que capturan prospectos y los insertan como Deals en el Kanban automáticamente.
+            Crea formularios hospedados por SLT, edítalos sin volver a pegar código y captura prospectos como Deals en el Kanban.
           </p>
         </div>
 
         {activeClientId && <CreateFormDialog clientId={activeClientId} stages={stages} />}
       </div>
 
-      <FormsList forms={forms} stages={stages} />
+      <FormsList forms={forms} stages={stages} clientId={activeClientId || ''} />
     </div>
   );
 }
