@@ -68,13 +68,16 @@
     var endpoint = (API_HOST ? API_HOST.replace(/\/$/, '') : '') + '/api/track';
     var dataStr = JSON.stringify(payload);
 
+    // Usamos text/plain para evitar el preflight CORS (petición simple).
+    // El API lee el body como texto y lo parsea como JSON.
     if (navigator.sendBeacon) {
-      var blob = new Blob([dataStr], { type: 'application/json' });
+      var blob = new Blob([dataStr], { type: 'text/plain;charset=UTF-8' });
       navigator.sendBeacon(endpoint, blob);
     } else {
       fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
         body: dataStr,
         keepalive: true,
       }).catch(function (err) {

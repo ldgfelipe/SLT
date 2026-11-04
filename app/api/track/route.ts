@@ -4,19 +4,31 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Accept',
+  'Access-Control-Max-Age': '86400',
 };
 
 const BOT_UA_REGEX = /bot|crawl|spider|slurp|mediapartners|facebookexternalhit|headless|phantom|selenium|puppeteer|wget|curl|python-requests|scrapy/i;
 
 export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders });
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { site_id, visitor_id, url, event_type, contact_id, hp } = body;
+    // Leemos como texto para aceptar text/plain (sin preflight CORS)
+    const raw = await req.text();
+    let body: any;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      return NextResponse.json(
+        { error: 'JSON inválido' },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const { site_id, visitor_id, url, event_type, contact_id, hp } = body || {};
 
     if (!site_id || !visitor_id || !url || !event_type) {
       return NextResponse.json(
@@ -47,6 +59,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
+      console.error('[api/track] insert error:', error);
       return NextResponse.json(
         { error: error.message },
         { status: 500, headers: corsHeaders }
@@ -55,6 +68,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true }, { status: 200, headers: corsHeaders });
   } catch (error: any) {
+    console.error('[api/track] error:', error);
     return NextResponse.json(
       { error: error.message || 'Error registrando evento' },
       { status: 500, headers: corsHeaders }
