@@ -2,9 +2,11 @@
 
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import type { FormConfig } from '@/types/forms';
 
 export async function createForm(clientId: string, data: {
   name: string;
+  fields_config: FormConfig;
   stage_id: string;
   pipeline_id: string;
 }) {
@@ -17,12 +19,7 @@ export async function createForm(clientId: string, data: {
         name: data.name,
         pipeline_id: data.pipeline_id,
         stage_id: data.stage_id,
-        fields_config: [
-          { name: 'first_name', label: 'Nombre', type: 'text', required: true },
-          { name: 'last_name', label: 'Apellido', type: 'text', required: false },
-          { name: 'email', label: 'Email', type: 'email', required: true },
-          { name: 'phone', label: 'Teléfono', type: 'tel', required: false },
-        ],
+        fields_config: data.fields_config,
       })
       .select()
       .single();

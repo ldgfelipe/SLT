@@ -4,7 +4,9 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { deleteForm } from '@/app/actions/forms';
 import { Form, Stage } from '@/types/database';
-import { Code, Copy, Check, Trash2, FileText } from 'lucide-react';
+import { normalizeFormConfig } from '@/types/forms';
+import { buildFormHtml, resolveServerUrl } from '@/components/forms/EmbedFormHelper';
+import { Code, Copy, Check, Trash2, FileText, MessageSquare, ExternalLink } from 'lucide-react';
 
 interface FormsListProps {
   forms: Form[];
@@ -21,8 +23,13 @@ export function FormsList({ forms, stages }: FormsListProps) {
   };
 
   const copyEmbedCode = (formId: string) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tu-dominio.vercel.app';
-    const code = `<form action="${origin}/api/forms/${formId}/submit" method="POST">\n  <input type="text" name="first_name" placeholder="Nombre" required />\n  <input type="text" name="last_name" placeholder="Apellido" />\n  <input type="email" name="email" placeholder="Email" required />\n  <input type="tel" name="phone" placeholder="Teléfono" />\n  <!-- Honey pot anti-bot (no debe llenarse) -->\n  <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;" />\n  <button type="submit">Enviar</button>\n</form>`;
+    const form = forms.find((f) => f.id === formId);
+    const config = normalizeFormConfig(form?.fields_config);
+    const code = buildFormHtml({
+      formId,
+      fields: config.fields,
+      serverUrl: resolveServerUrl(),
+    });
     navigator.clipboard.writeText(code);
     setCopiedId(formId);
     setTimeout(() => setCopiedId(null), 2500);
@@ -75,6 +82,34 @@ export function FormsList({ forms, stages }: FormsListProps) {
             <p className="text-xs text-slate-400 mt-0.5 font-mono">
               ID: {form.id}
             </p>
+
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
+                {normalizeFormConfig(form.fields_config).fields.length} campos
+              </span>
+              {(() => {
+                const config = normalizeFormConfig(form.fields_config);
+                if (config.redirect_url) {
+                  return (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 font-medium">
+                      <ExternalLink className="w-3 h-3" /> Redirige
+                    </span>
+                  );
+                }
+                if (config.message) {
+                  return (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-medium">
+                      <MessageSquare className="w-3 h-3" /> Mensaje
+                    </span>
+                  );
+                }
+                return (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-medium">
+                    <Check className="w-3 h-3" /> Confirmación
+                  </span>
+                );
+              })()}
+            </div>
 
             <div className="mt-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800 text-xs space-y-1">
               <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">

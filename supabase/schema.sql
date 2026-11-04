@@ -53,6 +53,9 @@ alter table contacts add column if not exists client_id uuid references clients(
 update contacts set client_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' where client_id is null;
 alter table contacts alter column client_id set not null;
 
+-- Datos adicionales del contacto (campos personalizados de los formularios)
+alter table contacts add column if not exists data jsonb not null default '{}'::jsonb;
+
 -- Ajustar constraint único a (client_id, email)
 alter table contacts drop constraint if exists contacts_email_key;
 do $$

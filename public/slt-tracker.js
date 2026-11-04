@@ -99,5 +99,6 @@
       sendEvent(eventType, data);
     },
     getVisitorId: getVisitorId,
+    siteId: SITE_ID,
   };
 })();

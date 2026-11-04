@@ -36,12 +36,14 @@ export function ContactsList({ contacts }: ContactsListProps) {
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+      <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
           <tr>
             <th className="px-5 py-3.5">Nombre</th>
             <th className="px-5 py-3.5">Email</th>
             <th className="px-5 py-3.5">Teléfono</th>
+            <th className="px-5 py-3.5">Datos extra</th>
             <th className="px-5 py-3.5">Fecha</th>
             <th className="px-5 py-3.5 text-right">Acciones</th>
           </tr>
@@ -73,6 +75,20 @@ export function ContactsList({ contacts }: ContactsListProps) {
                   <span className="text-slate-400 italic text-xs">Sin teléfono</span>
                 )}
               </td>
+              <td className="px-5 py-4 min-w-[220px]">
+                {contact.data && Object.keys(contact.data).length > 0 ? (
+                  <div className="text-[11px] text-slate-500 space-y-0.5">
+                    {Object.entries(contact.data as Record<string, any>).map(([k, v]) => (
+                      <div key={k} className="flex items-center gap-1.5 font-mono">
+                        <span className="text-indigo-600 dark:text-indigo-400">{k}:</span>
+                        <span className="max-w-[180px] truncate">{String(v ?? '')}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-400 italic text-xs">-</span>
+                )}
+              </td>
               <td className="px-5 py-4 text-slate-400 text-xs">
                 {contact.created_at ? new Date(contact.created_at).toLocaleDateString() : '-'}
               </td>
@@ -89,6 +105,7 @@ export function ContactsList({ contacts }: ContactsListProps) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

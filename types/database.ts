@@ -24,6 +24,7 @@ export interface Contact {
   last_name: string | null;
   email: string;
   phone: string | null;
+  data?: Record<string, any>;
   created_at?: string;
 }
 
@@ -61,7 +62,7 @@ export interface Form {
   pipeline_id: string;
   stage_id: string;
   name: string;
-  fields_config: any[];
+  fields_config: import('./forms').FormConfig | import('./forms').FormField[];
   created_at: string;
 }
 
