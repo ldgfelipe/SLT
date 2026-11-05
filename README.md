@@ -52,7 +52,16 @@ El plan gratuito (Hobby) de Vercel solo permite **2 tareas programadas**, y amba
 - Para habilitarlas en Supabase:
   1. `create extension pg_cron;`
   2. `create extension pg_net;`
-  3. Configurar `app.cron_secret` y `app.supabase_api_key` (o `ALTER DATABASE ... SET`).
-  4. Ejecutar la migración anterior (crea los jobs `growth_hub_publish_due`, `growth_hub_campaigns_sync` y `growth_hub_token_refresh`).
+  3. Ejecutar la migración `20261105_growth_hub_cron.sql`.
+  4. Configurar el secreto (mismo valor que `CRON_SECRET` en Vercel):
+     ```sql
+     select public.growth_hub_configure('TU_CRON_SECRET');
+     -- Opcional, si el app está en otro dominio:
+     -- select public.growth_hub_configure('TU_CRON_SECRET', 'https://tu-dominio.com');
+     ```
+  5. Verificar:
+     ```sql
+     select jobname, schedule, active from cron.job;
+     ```
 
 > Si se sube a un plan de pago en Vercel, basta con restaurar en `vercel.json` los crons frecuentes (`*/5` y `0 * * * *`) y las rutas `CRON_SECRET`-protegidas.
