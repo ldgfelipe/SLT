@@ -36,6 +36,34 @@ export function HostedForm({ formId, config }: HostedFormProps) {
   const [serverMessage, setServerMessage] = useState('');
   const [error, setError] = useState('');
   const [visitor, setVisitor] = useState<{ visitorId?: string; siteId?: string }>({});
+  const [renderedAt, setRenderedAt] = useState(0);
+
+  const captchaProvider = config.captcha?.provider ?? 'none';
+  const captchaSiteKey = config.captcha?.site_key?.trim() ?? '';
+  const hasCaptcha = captchaProvider !== 'none' && captchaSiteKey !== '';
+
+  // Marca de tiempo para la trampa anti-bot del servidor.
+  useEffect(() => {
+    setRenderedAt(Date.now());
+  }, []);
+
+  // Carga el script del captcha elegido (reCAPTCHA o Turnstile).
+  useEffect(() => {
+    if (!hasCaptcha) return;
+
+    const src =
+      captchaProvider === 'recaptcha'
+        ? 'https://www.google.com/recaptcha/api.js'
+        : 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+
+    if (document.querySelector(`script[src^="${src}"]`)) return;
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, [captchaProvider, hasCaptcha]);
 
   // Recibe el visitante del píxel desde el script contenedor (embed).
   useEffect(() => {
@@ -97,6 +125,20 @@ export function HostedForm({ formId, config }: HostedFormProps) {
     window.location.href = target;
   }
 
+  /** Reinicia el widget de captcha para que pida una verificación nueva. */
+  function resetCaptcha() {
+    if (!hasCaptcha) return;
+    try {
+      if (captchaProvider === 'recaptcha') {
+        (window as any).grecaptcha?.reset?.();
+      } else {
+        (window as any).turnstile?.reset?.();
+      }
+    } catch {
+      // widget todavía no cargado
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!formRef.current || status === 'submitting') return;
@@ -108,6 +150,19 @@ export function HostedForm({ formId, config }: HostedFormProps) {
     const data = new FormData(formRef.current);
     if (visitor.visitorId && !data.get('visitor_id')) data.set('visitor_id', visitor.visitorId);
     if (visitor.siteId && !data.get('site_id')) data.set('site_id', visitor.siteId);
+
+    // Los widgets suelen inyectar el token dentro del formulario, pero lo leemos
+    // del DOM por si el navegador lo coloca fuera del contenedor.
+    if (hasCaptcha) {
+      const captchaField =
+        captchaProvider === 'recaptcha' ? 'g-recaptcha-response' : 'cf-turnstile-response';
+      if (!data.get(captchaField)) {
+        const token = (
+          document.querySelector(`[name="${captchaField}"]`) as HTMLTextAreaElement | null
+        )?.value?.trim();
+        if (token) data.set(captchaField, token);
+      }
+    }
 
     const body = new URLSearchParams();
     data.forEach((value, key) => {
@@ -123,7 +178,12 @@ export function HostedForm({ formId, config }: HostedFormProps) {
       const json = await response.json().catch(() => ({}));
 
       if (!response.ok || json.success === false) {
-        throw new Error(json.error || 'No se pudo enviar el formulario.');
+        if (json.code === 'captcha_failed' || json.code === 'captcha_not_configured') {
+          resetCaptcha();
+        }
+        const failure: any = new Error(json.error || 'No se pudo enviar el formulario.');
+        failure.code = json.code;
+        throw failure;
       }
 
       if (json.redirect_url) {
@@ -252,12 +312,34 @@ export function HostedForm({ formId, config }: HostedFormProps) {
               })}
             </div>
 
+            {/* Honeypot: invisibles para personas, tentadores para bots. */}
             <div className="hidden" aria-hidden="true">
               <label>
                 No completar este campo
                 <input type="text" name="hp" tabIndex={-1} autoComplete="off" />
               </label>
+              <label>
+                Sitio web
+                <input type="text" name="website" tabIndex={-1} autoComplete="off" />
+              </label>
             </div>
+
+            {/* Trampa de tiempo: marca cuándo se renderizó el formulario. */}
+            <input type="hidden" name="_slt_ts" value={renderedAt || ''} readOnly />
+
+            {hasCaptcha && (
+              <div className="mt-4 flex justify-center">
+                {captchaProvider === 'recaptcha' ? (
+                  <div className="g-recaptcha" data-sitekey={captchaSiteKey} />
+                ) : (
+                  <div
+                    className="cf-turnstile"
+                    data-sitekey={captchaSiteKey}
+                    data-theme="auto"
+                  />
+                )}
+              </div>
+            )}
 
             {error && (
               <div className="mt-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-[13px] text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">

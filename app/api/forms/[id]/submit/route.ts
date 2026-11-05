@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { BASIC_CONTACT_FIELDS, normalizeFormConfig } from '@/types/forms';
+import {
+  BASIC_CONTACT_FIELDS,
+  CAPTCHA_SECRET_ENV,
+  CaptchaProvider,
+  normalizeFormConfig,
+} from '@/types/forms';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,7 +22,87 @@ const RESERVED_FIELDS = new Set<string>([
   'site_id',
   'title',
   'value',
+  '_slt_ts',
+  'g-recaptcha-response',
+  'cf-turnstile-response',
 ]);
+
+const CAPTCHA_RESPONSE_FIELDS: Record<CaptchaProvider, string> = {
+  none: '',
+  recaptcha: 'g-recaptcha-response',
+  turnstile: 'cf-turnstile-response',
+};
+
+const CAPTCHA_VERIFY_URLS: Record<Exclude<CaptchaProvider, 'none'>, string> = {
+  recaptcha: 'https://www.google.com/recaptcha/api/siteverify',
+  turnstile: 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+};
+
+type CaptchaResult =
+  | { ok: true }
+  | { ok: false; code: 'captcha_failed' | 'captcha_not_configured'; error: string };
+
+async function verifyCaptcha(
+  provider: CaptchaProvider,
+  token: string,
+  remoteIp?: string
+): Promise<CaptchaResult> {
+  if (provider === 'none') return { ok: true };
+
+  const secret = process.env[CAPTCHA_SECRET_ENV[provider]];
+  if (!secret) {
+    console.error(
+      `[forms submit] Falta la variable de entorno ${CAPTCHA_SECRET_ENV[provider]} para ${provider}.`
+    );
+    return {
+      ok: false,
+      code: 'captcha_not_configured',
+      error: 'La protección anti-bot no está configurada en el servidor.',
+    };
+  }
+
+  if (!token) {
+    return {
+      ok: false,
+      code: 'captcha_failed',
+      error: 'Completa la verificación anti-bot.',
+    };
+  }
+
+  const payload = new URLSearchParams({ secret, response: token });
+  if (remoteIp) payload.set('remoteip', remoteIp);
+
+  try {
+    const response = await fetch(CAPTCHA_VERIFY_URLS[provider], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: payload,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    });
+
+    const result = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      'error-codes'?: string[];
+    };
+
+    if (result.success === true) return { ok: true };
+
+    console.warn('[forms submit] captcha rechazado:', provider, result['error-codes']);
+    return {
+      ok: false,
+      code: 'captcha_failed',
+      error: 'La verificación anti-bot falló. Inténtalo de nuevo.',
+    };
+  } catch (err) {
+    console.warn('[forms submit] error verificando captcha:', err);
+    return {
+      ok: false,
+      code: 'captcha_failed',
+      error: 'No se pudo verificar la protección anti-bot. Inténtalo de nuevo.',
+    };
+  }
+}
 
 async function parseBody(req: NextRequest): Promise<Record<string, any> | null> {
   const contentType = (req.headers.get('content-type') || '').toLowerCase();
@@ -92,6 +177,15 @@ export async function POST(
       return NextResponse.json({ success: true }, { status: 201, headers: corsHeaders });
     }
 
+    // Trampa de tiempo: un envío humano tarda más de ~1 segundo en completar el formulario.
+    const renderedAt = Number(body._slt_ts);
+    if (Number.isFinite(renderedAt) && renderedAt > 0) {
+      const elapsed = Date.now() - renderedAt;
+      if (elapsed >= 0 && elapsed < 1200) {
+        return NextResponse.json({ success: true }, { status: 201, headers: corsHeaders });
+      }
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
 
     // 1. Configuración del formulario
@@ -111,7 +205,45 @@ export async function POST(
     const config = normalizeFormConfig(form.fields_config);
     const { redirect_url: cfgRedirect, message: cfgMessage } = config;
 
-    // 2. Normalizar valores enviados
+    // 2. Verificación anti-bot (reCAPTCHA o Turnstile) si está configurada
+    const captcha = config.captcha;
+    if (captcha && captcha.provider !== 'none') {
+      if (!captcha.site_key) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'captcha_not_configured',
+            error: 'La protección anti-bot no tiene una site key configurada.',
+          },
+          { status: 503, headers: corsHeaders }
+        );
+      }
+
+      const rawToken = body[CAPTCHA_RESPONSE_FIELDS[captcha.provider]];
+      const token = typeof rawToken === 'string' ? rawToken.trim() : '';
+      const remoteIp =
+        req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+        req.headers.get('x-real-ip') ||
+        undefined;
+
+      const verification = await verifyCaptcha(captcha.provider, token, remoteIp);
+
+      if (!verification.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: verification.code,
+            error: verification.error,
+          },
+          {
+            status: verification.code === 'captcha_not_configured' ? 503 : 422,
+            headers: corsHeaders,
+          }
+        );
+      }
+    }
+
+    // 3. Normalizar valores enviados
     const submitted: Record<string, string> = {};
     for (const [key, raw] of Object.entries(body)) {
       if (raw === undefined || raw === null) continue;

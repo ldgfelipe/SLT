@@ -24,11 +24,49 @@ export interface FormField {
 
 export type SubmitBehavior = 'none' | 'redirect' | 'message';
 
+export type CaptchaProvider = 'none' | 'recaptcha' | 'turnstile';
+
+export interface CaptchaConfig {
+  provider: CaptchaProvider;
+  /** Clave pública del widget. La clave secreta vive solo en variables de entorno. */
+  site_key?: string;
+}
+
 export interface FormConfig {
   fields: FormField[];
   submit_mode?: SubmitBehavior;
   redirect_url?: string;
   message?: string;
+  /** Protección anti-bot opcional. El honeypot y la trampa de tiempo siempre están activos. */
+  captcha?: CaptchaConfig;
+}
+
+export const CAPTCHA_LABELS: Record<CaptchaProvider, string> = {
+  none: 'Sin captcha',
+  recaptcha: 'Google reCAPTCHA',
+  turnstile: 'Cloudflare Turnstile',
+};
+
+export const CAPTCHA_SECRET_ENV: Record<CaptchaProvider, string> = {
+  none: '',
+  recaptcha: 'RECAPTCHA_SECRET_KEY',
+  turnstile: 'TURNSTILE_SECRET_KEY',
+};
+
+function normalizeCaptcha(raw: unknown): CaptchaConfig {
+  if (!raw || typeof raw !== 'object') return { provider: 'none' };
+  const value = raw as Partial<CaptchaConfig>;
+  const provider: CaptchaProvider =
+    value.provider === 'recaptcha' || value.provider === 'turnstile'
+      ? value.provider
+      : 'none';
+
+  if (provider === 'none') return { provider: 'none' };
+
+  return {
+    provider,
+    site_key: typeof value.site_key === 'string' ? value.site_key.trim() : '',
+  };
 }
 
 /** Campos base que se mapean directo a columnas de la tabla contacts. */
@@ -63,6 +101,7 @@ export function normalizeFormConfig(raw: unknown): FormConfig {
     return {
       fields: (raw as LegacyField[]).map(normalizeField),
       submit_mode: 'none',
+      captcha: { provider: 'none' },
     };
   }
   if (raw && typeof raw === 'object') {
@@ -75,7 +114,8 @@ export function normalizeFormConfig(raw: unknown): FormConfig {
         (config.redirect_url ? 'redirect' : config.message ? 'message' : 'none'),
       redirect_url: config.redirect_url,
       message: config.message,
+      captcha: normalizeCaptcha(config.captcha),
     };
   }
-  return { fields: [], submit_mode: 'none' };
+  return { fields: [], submit_mode: 'none', captcha: { provider: 'none' } };
 }
