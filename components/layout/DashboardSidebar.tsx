@@ -12,6 +12,9 @@ import {
   ShieldAlert,
   LogOut,
   UserCheck,
+  Share2,
+  CalendarDays,
+  Megaphone,
 } from 'lucide-react';
 import { ClientSwitcher } from '@/components/layout/ClientSwitcher';
 import { logoutUser } from '@/app/actions/auth';
@@ -59,6 +62,21 @@ export function DashboardSidebar({
       label: 'Pixel & Tracking',
       href: '/dashboard/tracking',
       icon: Activity,
+    },
+    {
+      label: 'Cuentas Sociales',
+      href: '/dashboard/social-accounts',
+      icon: Share2,
+    },
+    {
+      label: 'Calendario Publicador',
+      href: '/dashboard/calendar',
+      icon: CalendarDays,
+    },
+    {
+      label: 'Campañas Ads',
+      href: '/dashboard/campaigns',
+      icon: Megaphone,
     },
     {
       label: 'Gestión de Usuarios',

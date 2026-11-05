@@ -17,6 +17,9 @@ export async function setActiveClient(clientId: string) {
   revalidatePath('/dashboard/contacts');
   revalidatePath('/dashboard/forms');
   revalidatePath('/dashboard/tracking');
+  revalidatePath('/dashboard/social-accounts');
+  revalidatePath('/dashboard/calendar');
+  revalidatePath('/dashboard/campaigns');
   return { success: true };
 }
 

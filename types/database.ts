@@ -91,6 +91,7 @@ export interface TrackingEvent {
   utm_content?: string | null;
   fingerprint?: string | null;
   metadata?: Record<string, any> | null;
+  campaign_id?: string | null;
   site?: { domain: string } | null;
   tracking_sites?: { domain: string } | null;
 }
@@ -139,4 +140,103 @@ export interface LeadDetailsPayload {
   contact: Contact;
   deal: Deal | null;
   events: LeadJourneyEvent[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Growth Hub                                                          */
+/* ------------------------------------------------------------------ */
+
+export type SocialProvider =
+  | 'facebook'
+  | 'instagram'
+  | 'tiktok'
+  | 'linkedin'
+  | 'x'
+  | 'threads'
+  | 'youtube';
+
+export type PostStatus = 'draft' | 'queued' | 'publishing' | 'published' | 'failed';
+
+/** Cuenta social sin secretos: nunca incluye tokens. */
+export interface SocialAccount {
+  id: string;
+  client_id: string;
+  provider: SocialProvider;
+  account_name: string;
+  page_id: string | null;
+  ig_user_id: string | null;
+  token_expires_at: string | null;
+  status: string;
+  metadata?: Record<string, any> | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface Campaign {
+  id: string;
+  client_id: string;
+  name: string;
+  objective: string | null;
+  provider: string;
+  external_campaign_id: string | null;
+  budget: number;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+  conversions: number;
+  revenue: number;
+  visits: number;
+  status: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+}
+
+export interface Post {
+  id: string;
+  client_id: string;
+  social_account_id: string | null;
+  campaign_id: string | null;
+  titulo: string;
+  descripcion: string | null;
+  imagen_url: string | null;
+  plataformas: SocialProvider[] | string[];
+  scheduled_at: string | null;
+  status: PostStatus;
+  external_post_ids: Record<string, string>;
+  error_log: string | null;
+  attempts: number;
+  published_at: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  campaign?: Pick<Campaign, 'id' | 'name'> | null;
+  social_account?: Pick<SocialAccount, 'id' | 'account_name' | 'provider'> | null;
+}
+
+export interface PublishLog {
+  id: string;
+  post_id: string;
+  provider: string | null;
+  attempt: number;
+  status: string | null;
+  response: Record<string, any>;
+  created_at: string;
+}
+
+/** Cuenta descubierta durante el callback OAuth (ya con token cifrado). */
+export interface PendingSocialAccount {
+  account_name: string;
+  page_id?: string | null;
+  ig_user_id?: string | null;
+  token_expires_at?: string | null;
+  metadata?: Record<string, any>;
+}
+
+export interface PendingOAuthSession {
+  id: string;
+  provider: SocialProvider;
+  accounts: PendingSocialAccount[];
+  expires_at: string;
 }
