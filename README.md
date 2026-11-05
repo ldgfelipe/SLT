@@ -81,3 +81,12 @@ En **Dashboard → Pixel & Tracking** también puedes:
 - **Límite de registros** por cliente (default 10,000). El endpoint `/api/track` purga los eventos más antiguos automáticamente cuando se alcanza el límite. Se muestra una alerta al 80% y al 100%.
 
 Las exclusiones de IP también se administran en esa misma sección.
+
+## Kanban - agregar lead manualmente
+
+En **Dashboard → Pipelines (Kanban)** el botón **Agregar lead** permite:
+
+- Vincular un contacto existente (búsqueda por nombre/correo/teléfono).
+- Crear un contacto nuevo (nombre, correo, teléfono opcionales).
+
+En ambos casos se crea la oportunidad en el pipeline (título automático editable, valor esperado y etapa inicial) y el lead aparece en Contactos y en el Kanban listo para el proceso comercial.

@@ -126,7 +126,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <KanbanBoard initialStages={stages} />
+      <KanbanBoard initialStages={stages} clientId={activeClientId} />
     </div>
   );
 }

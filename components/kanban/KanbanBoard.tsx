@@ -16,14 +16,16 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { StageColumn } from './StageColumn';
 import { DealCard } from './DealCard';
 import { LeadDetailDrawer } from '@/components/lead/LeadDetailDrawer';
+import { AddLeadDialog } from './AddLeadDialog';
 import { updateDealStage } from '@/app/actions/deals';
 import { Stage, Deal } from '@/types/database';
 
 interface KanbanBoardProps {
   initialStages: Stage[];
+  clientId?: string;
 }
 
-export function KanbanBoard({ initialStages }: KanbanBoardProps) {
+export function KanbanBoard({ initialStages, clientId }: KanbanBoardProps) {
   const [stages, setStages] = useState<Stage[]>(initialStages);
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
@@ -121,7 +123,11 @@ export function KanbanBoard({ initialStages }: KanbanBoardProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex w-full h-[calc(100vh-10rem)] gap-4 overflow-x-auto pb-4">
+      <div className="mb-2 flex items-center justify-end">
+        <AddLeadDialog clientId={clientId} stages={stages} />
+      </div>
+
+      <div className="flex w-full h-[calc(100vh-12rem)] gap-4 overflow-x-auto pb-4">
         {stages.map((stage) => (
           <StageColumn
             key={stage.id}
