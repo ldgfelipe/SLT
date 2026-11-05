@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useEffect, useState, useTransition } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -39,6 +39,11 @@ export function KanbanBoard({ initialStages }: KanbanBoardProps) {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Sincronizar con el servidor (p. ej. tras eliminar una oportunidad).
+  useEffect(() => {
+    setStages(initialStages);
+  }, [initialStages]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
