@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { deleteDeal } from '@/app/actions/deals';
+import { deleteContact } from '@/app/actions/contacts';
 import {
   X,
   Loader2,
@@ -25,6 +26,7 @@ import {
   Trash2,
   CalendarClock,
   ListChecks,
+  UserX,
 } from 'lucide-react';
 import { getLeadDetails } from '@/app/actions/lead';
 import {
@@ -104,6 +106,7 @@ export function LeadDetailDrawer({
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [deletingContact, setDeletingContact] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [payload, setPayload] = useState<LeadDetailsPayload | null>(null);
@@ -219,6 +222,33 @@ export function LeadDetailDrawer({
     router.refresh();
   };
 
+  const handleDeleteContact = async () => {
+    const currentContact = payload?.contact;
+    if (!currentContact || deletingContact) return;
+
+    const name = `${currentContact.first_name} ${currentContact.last_name || ''}`.trim();
+
+    const confirmed = confirm(
+      `¿Eliminar al contacto "${name}"?\n\nSe borrarán sus notas y la ficha dejará de mostrar su journey. Las oportunidades que tenga quedarán sin contacto asociado.`
+    );
+    if (!confirmed) return;
+
+    setDeletingContact(true);
+    setDeleteError('');
+
+    const result = await deleteContact(currentContact.id);
+
+    setDeletingContact(false);
+
+    if (!result.success) {
+      setDeleteError(result.error || 'No se pudo eliminar el contacto.');
+      return;
+    }
+
+    onClose();
+    router.refresh();
+  };
+
   if (!open) return null;
 
   const displayName = contact
@@ -262,6 +292,21 @@ export function LeadDetailDrawer({
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Trash2 className="h-4 w-4" />
+                )}
+              </button>
+            )}
+            {contact && (
+              <button
+                onClick={handleDeleteContact}
+                disabled={deletingContact}
+                aria-label="Eliminar contacto"
+                title="Eliminar contacto"
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+              >
+                {deletingContact ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <UserX className="h-4 w-4" />
                 )}
               </button>
             )}

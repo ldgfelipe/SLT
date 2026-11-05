@@ -35,12 +35,31 @@ export async function createContact(clientId: string, formData: {
 }
 
 export async function deleteContact(contactId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: 'No autenticado.' };
+
   try {
     const supabase = getSupabaseAdmin();
+
+    const { data: contact } = await supabase
+      .from('contacts')
+      .select('id, client_id, first_name, last_name')
+      .eq('id', contactId)
+      .maybeSingle();
+
+    if (!contact) {
+      return { success: false, error: 'Contacto no encontrado.' };
+    }
+
+    if (!canAccessClient(user, contact.client_id)) {
+      return { success: false, error: 'Sin acceso a este cliente.' };
+    }
+
     const { error } = await supabase.from('contacts').delete().eq('id', contactId);
     if (error) return { success: false, error: error.message };
 
     revalidatePath('/dashboard/contacts');
+    revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || 'Error al eliminar contacto' };
