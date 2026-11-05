@@ -69,19 +69,72 @@
 
   function postVisitor() {
     try {
+      var utm = {};
+      var UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+      try {
+        var params = new URLSearchParams(window.location.search);
+        for (var i = 0; i < UTM_KEYS.length; i++) {
+          var value = params.get(UTM_KEYS[i]);
+          if (value) utm[UTM_KEYS[i]] = value.slice(0, 200);
+        }
+      } catch (e) {}
+
+      var landingUrl = window.location.href;
+      try {
+        landingUrl = sessionStorage.getItem('slt_landing') || window.location.href;
+        if (!sessionStorage.getItem('slt_landing')) {
+          sessionStorage.setItem('slt_landing', landingUrl);
+        }
+      } catch (e) {}
+
+      var context = {
+        pageUrl: window.location.href,
+        pageTitle: document.title || '',
+        referrer: document.referrer || '',
+        landingUrl: landingUrl,
+        placement:
+          script.getAttribute('data-source') ||
+          script.getAttribute('data-placement') ||
+          null,
+        utm: utm,
+        fingerprint: null,
+        visitorId: null,
+        siteId: null,
+      };
+
+      // Si el pixel está instalado reutilizamos su visitor_id y fingerprint
+      // para unir la visita previa con el envío del formulario.
       var slt = window.slt;
-      if (slt && slt.getVisitorId && iframe.contentWindow) {
+      if (slt) {
+        if (typeof slt.getVisitorId === 'function') {
+          context.visitorId = slt.getVisitorId();
+        }
+        if (slt.siteId) context.siteId = slt.siteId;
+        if (typeof slt.getFingerprint === 'function') {
+          context.fingerprint = slt.getFingerprint();
+        }
+        if (typeof slt.getContext === 'function') {
+          try {
+            var base = slt.getContext();
+            context.fingerprint = base.fingerprint || context.fingerprint;
+          } catch (e) {}
+        }
+      }
+
+      if (iframe.contentWindow) {
         iframe.contentWindow.postMessage(
           {
             type: 'slt-visitor',
-            visitorId: slt.getVisitorId(),
-            siteId: slt.siteId || null,
+            visitorId: context.visitorId,
+            siteId: context.siteId,
+            fingerprint: context.fingerprint,
+            context: context,
           },
           origin
         );
       }
     } catch (e) {
-      // sin píxel o sin permiso
+      // sin pixel o sin permiso
     }
   }
 

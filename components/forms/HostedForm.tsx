@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Loader2, Send } from 'lucide-react';
 import type { FormConfig, FormField } from '@/types/forms';
+import { getFingerprint } from '@/lib/fingerprint';
 
 interface HostedFormProps {
   formId: string;
@@ -10,6 +11,18 @@ interface HostedFormProps {
 }
 
 type Status = 'idle' | 'submitting' | 'success' | 'error';
+
+interface FormContext {
+  visitorId?: string;
+  siteId?: string;
+  fingerprint?: string;
+  pageUrl?: string;
+  pageTitle?: string;
+  referrer?: string;
+  landingUrl?: string;
+  placement?: string;
+  utm: Record<string, string>;
+}
 
 const inputClass =
   'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500';
@@ -35,7 +48,7 @@ export function HostedForm({ formId, config }: HostedFormProps) {
   const [status, setStatus] = useState<Status>('idle');
   const [serverMessage, setServerMessage] = useState('');
   const [error, setError] = useState('');
-  const [visitor, setVisitor] = useState<{ visitorId?: string; siteId?: string }>({});
+  const [context, setContext] = useState<FormContext>({ utm: {} });
   const [renderedAt, setRenderedAt] = useState(0);
 
   const captchaProvider = config.captcha?.provider ?? 'none';
@@ -65,22 +78,96 @@ export function HostedForm({ formId, config }: HostedFormProps) {
     document.head.appendChild(script);
   }, [captchaProvider, hasCaptcha]);
 
+  // Contexto local (página, UTM, fingerprint). Si el formulario va embebido,
+  // el script del sitio anfitrión lo sobrescribe con los datos reales.
+  useEffect(() => {
+    const utmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+    const params = new URLSearchParams(window.location.search);
+    const utm: Record<string, string> = {};
+    for (const key of utmKeys) {
+      const value = params.get(key);
+      if (value) utm[key] = value;
+    }
+
+    let landingUrl = window.location.href;
+    try {
+      landingUrl = sessionStorage.getItem('slt_landing') || window.location.href;
+    } catch {
+      // almacenamiento bloqueado
+    }
+
+    setContext((prev) => ({
+      ...prev,
+      fingerprint: prev.fingerprint || getFingerprint() || undefined,
+      pageUrl: prev.pageUrl || window.location.href,
+      pageTitle: prev.pageTitle || document.title || undefined,
+      referrer: prev.referrer || document.referrer || undefined,
+      landingUrl: prev.landingUrl || landingUrl,
+      placement:
+        prev.placement || params.get('placement') || params.get('source') || undefined,
+      utm: Object.keys(prev.utm).length > 0 ? prev.utm : utm,
+    }));
+  }, []);
+
   // Recibe el visitante del píxel desde el script contenedor (embed).
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const data = event.data;
       if (!data || data.type !== 'slt-visitor') return;
-      setVisitor({
-        visitorId: typeof data.visitorId === 'string' ? data.visitorId : undefined,
-        siteId: typeof data.siteId === 'string' ? data.siteId : undefined,
-      });
+
+      const incoming = (data.context || {}) as Record<string, any>;
+      const incomingUtm =
+        incoming.utm && typeof incoming.utm === 'object'
+          ? (incoming.utm as Record<string, string>)
+          : null;
+
+      setContext((prev) => ({
+        ...prev,
+        visitorId:
+          typeof data.visitorId === 'string' ? data.visitorId : prev.visitorId,
+        siteId: typeof data.siteId === 'string' ? data.siteId : prev.siteId,
+        fingerprint:
+          typeof data.fingerprint === 'string' ? data.fingerprint : prev.fingerprint,
+        pageUrl:
+          typeof incoming.pageUrl === 'string' ? incoming.pageUrl : prev.pageUrl,
+        pageTitle:
+          typeof incoming.pageTitle === 'string' ? incoming.pageTitle : prev.pageTitle,
+        referrer:
+          typeof incoming.referrer === 'string' ? incoming.referrer : prev.referrer,
+        landingUrl:
+          typeof incoming.landingUrl === 'string' ? incoming.landingUrl : prev.landingUrl,
+        placement:
+          typeof incoming.placement === 'string' ? incoming.placement : prev.placement,
+        utm: incomingUtm ? { ...prev.utm, ...incomingUtm } : prev.utm,
+      }));
     };
+
     window.addEventListener('message', onMessage);
 
     try {
       const slt = (window as any).slt;
-      if (slt?.getVisitorId) {
-        setVisitor({ visitorId: slt.getVisitorId(), siteId: slt.siteId });
+      if (slt?.getContext) {
+        const base = slt.getContext() as Record<string, any>;
+        setContext((prev) => ({
+          ...prev,
+          visitorId: prev.visitorId || base.visitorId,
+          siteId: prev.siteId || base.siteId,
+          fingerprint: prev.fingerprint || base.fingerprint,
+          pageUrl: prev.pageUrl || base.pageUrl,
+          pageTitle: prev.pageTitle || base.pageTitle,
+          referrer: prev.referrer || base.referrer,
+          landingUrl: prev.landingUrl || base.landingUrl,
+          utm:
+            Object.keys(prev.utm).length > 0
+              ? prev.utm
+              : (base.utm as Record<string, string>) || prev.utm,
+        }));
+      } else if (slt?.getVisitorId) {
+        setContext((prev) => ({
+          ...prev,
+          visitorId: prev.visitorId || slt.getVisitorId(),
+          siteId: prev.siteId || slt.siteId,
+        }));
       }
     } catch {
       // sin píxel
@@ -148,8 +235,21 @@ export function HostedForm({ formId, config }: HostedFormProps) {
     setStatus('submitting');
 
     const data = new FormData(formRef.current);
-    if (visitor.visitorId && !data.get('visitor_id')) data.set('visitor_id', visitor.visitorId);
-    if (visitor.siteId && !data.get('site_id')) data.set('site_id', visitor.siteId);
+    const setIfMissing = (key: string, value?: string | null) => {
+      if (value && !data.get(key)) data.set(key, value);
+    };
+
+    setIfMissing('visitor_id', context.visitorId);
+    setIfMissing('site_id', context.siteId);
+    setIfMissing('_slt_fingerprint', context.fingerprint || getFingerprint());
+    setIfMissing('_slt_page_url', context.pageUrl);
+    setIfMissing('_slt_page_title', context.pageTitle);
+    setIfMissing('_slt_referrer', context.referrer);
+    setIfMissing('_slt_landing_url', context.landingUrl);
+    setIfMissing('_slt_placement', context.placement);
+    for (const [key, value] of Object.entries(context.utm)) {
+      setIfMissing(`_slt_${key}`, value);
+    }
 
     // Los widgets suelen inyectar el token dentro del formulario, pero lo leemos
     // del DOM por si el navegador lo coloca fuera del contenedor.

@@ -118,6 +118,15 @@ create table if not exists tracking_events (
   contact_id uuid references contacts(id) on delete set null,
   event_type text not null check (event_type in ('pageview', 'conversion')),
   url text not null,
+  referrer text,
+  landing_url text,
+  utm_source text,
+  utm_medium text,
+  utm_campaign text,
+  utm_term text,
+  utm_content text,
+  fingerprint text,
+  metadata jsonb not null default '{}'::jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -127,6 +136,9 @@ create index if not exists idx_stages_pipeline_order on stages(pipeline_id, "ord
 create index if not exists idx_contacts_client_email on contacts(client_id, email);
 create index if not exists idx_deals_client_stage on deals(client_id, stage_id);
 create index if not exists idx_events_site_visitor on tracking_events(tracking_site_id, visitor_id);
+create index if not exists idx_events_contact_created on tracking_events(contact_id, created_at);
+create index if not exists idx_events_visitor_created on tracking_events(visitor_id, created_at);
+create index if not exists idx_events_fingerprint_created on tracking_events(fingerprint, created_at);
 
 -- ROW LEVEL SECURITY (RLS)
 alter table clients enable row level security;

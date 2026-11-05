@@ -34,14 +34,29 @@ export function buildFormUrl(formId: string, serverUrl?: string): string {
 /**
  * Snippet de una sola línea. El script inserta un iframe con el formulario
  * hospedado y se actualiza solo cuando editas el formulario en SLT.
+ * `placement` etiqueta opcionalmente dónde está el formulario (hero, footer…).
  */
-export function buildEmbedSnippet(formId: string, serverUrl?: string): string {
+export function buildEmbedSnippet(
+  formId: string,
+  serverUrl?: string,
+  placement?: string
+): string {
   const base = resolveServerUrl(serverUrl);
-  return `<script src="${base}/slt-form.js" data-form-id="${formId}" async></script>`;
+  const source = placement
+    ? ` data-source="${placement.replace(/"/g, '&quot;')}"`
+    : '';
+  return `<script src="${base}/slt-form.js" data-form-id="${formId}"${source} async></script>`;
 }
 
 /** Alternativa sin JavaScript: iframe de una sola línea. */
-export function buildIframeSnippet(formId: string, serverUrl?: string): string {
+export function buildIframeSnippet(
+  formId: string,
+  serverUrl?: string,
+  placement?: string
+): string {
   const base = resolveServerUrl(serverUrl);
-  return `<iframe src="${base}/f/${formId}?embed=1" title="Formulario" loading="lazy" style="width:100%;border:0;min-height:520px"></iframe>`;
+  const source = placement
+    ? `&placement=${encodeURIComponent(placement)}`
+    : '';
+  return `<iframe src="${base}/f/${formId}?embed=1${source}" title="Formulario" loading="lazy" style="width:100%;border:0;min-height:520px"></iframe>`;
 }

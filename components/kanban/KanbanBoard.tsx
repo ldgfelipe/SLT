@@ -15,6 +15,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { StageColumn } from './StageColumn';
 import { DealCard } from './DealCard';
+import { LeadDetailDrawer } from '@/components/lead/LeadDetailDrawer';
 import { updateDealStage } from '@/app/actions/deals';
 import { Stage, Deal } from '@/types/database';
 
@@ -25,6 +26,7 @@ interface KanbanBoardProps {
 export function KanbanBoard({ initialStages }: KanbanBoardProps) {
   const [stages, setStages] = useState<Stage[]>(initialStages);
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const sensors = useSensors(
@@ -116,13 +118,24 @@ export function KanbanBoard({ initialStages }: KanbanBoardProps) {
     >
       <div className="flex w-full h-[calc(100vh-10rem)] gap-4 overflow-x-auto pb-4">
         {stages.map((stage) => (
-          <StageColumn key={stage.id} stage={stage} deals={stage.deals || []} />
+          <StageColumn
+            key={stage.id}
+            stage={stage}
+            deals={stage.deals || []}
+            onOpenDeal={(deal) => setSelectedDealId(deal.id)}
+          />
         ))}
       </div>
 
       <DragOverlay>
         {activeDeal ? <DealCard deal={activeDeal} isOverlay /> : null}
       </DragOverlay>
+
+      <LeadDetailDrawer
+        open={!!selectedDealId}
+        dealId={selectedDealId || undefined}
+        onClose={() => setSelectedDealId(null)}
+      />
     </DndContext>
   );
 }

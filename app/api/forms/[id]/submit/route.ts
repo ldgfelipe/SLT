@@ -6,6 +6,7 @@ import {
   CaptchaProvider,
   normalizeFormConfig,
 } from '@/types/forms';
+import type { LeadAttribution } from '@/types/database';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,9 +24,44 @@ const RESERVED_FIELDS = new Set<string>([
   'title',
   'value',
   '_slt_ts',
+  '_slt_fingerprint',
+  '_slt_page_url',
+  '_slt_page_title',
+  '_slt_referrer',
+  '_slt_landing_url',
+  '_slt_placement',
+  '_slt_utm_source',
+  '_slt_utm_medium',
+  '_slt_utm_campaign',
+  '_slt_utm_term',
+  '_slt_utm_content',
   'g-recaptcha-response',
   'cf-turnstile-response',
 ]);
+
+const ATTRIBUTION_COLUMNS = [
+  'referrer',
+  'landing_url',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'fingerprint',
+  'metadata',
+];
+
+/** Detecta columnas de atribución pendientes de migración en tracking_events. */
+function isMissingTrackingColumn(message: string | undefined): boolean {
+  const text = (message || '').toLowerCase();
+  if (!text) return false;
+  const looksMissing =
+    text.includes('does not exist') ||
+    text.includes('could not find') ||
+    text.includes('schema cache') ||
+    text.includes('undefined column');
+  return looksMissing && ATTRIBUTION_COLUMNS.some((column) => text.includes(column));
+}
 
 const CAPTCHA_RESPONSE_FIELDS: Record<CaptchaProvider, string> = {
   none: '',
@@ -293,6 +329,32 @@ export async function POST(
       extras[key] = value;
     }
 
+    // 4b. Atribución del origen del lead (página, UTM, referrer, fingerprint).
+    const visitorId = submitted.visitor_id || undefined;
+    const fingerprint = submitted._slt_fingerprint || undefined;
+
+    const rawAttribution: LeadAttribution = {
+      form_id: form.id,
+      form_name: form.name,
+      page_url: submitted._slt_page_url || undefined,
+      page_title: submitted._slt_page_title || undefined,
+      referrer: submitted._slt_referrer || undefined,
+      landing_url: submitted._slt_landing_url || undefined,
+      placement: submitted._slt_placement || undefined,
+      utm_source: submitted._slt_utm_source || undefined,
+      utm_medium: submitted._slt_utm_medium || undefined,
+      utm_campaign: submitted._slt_utm_campaign || undefined,
+      utm_term: submitted._slt_utm_term || undefined,
+      utm_content: submitted._slt_utm_content || undefined,
+      visitor_id: visitorId,
+      fingerprint,
+      captured_at: new Date().toISOString(),
+    };
+
+    const attribution = Object.fromEntries(
+      Object.entries(rawAttribution).filter(([, value]) => value !== undefined)
+    ) as LeadAttribution;
+
     // 5. Buscar o crear contacto (clave: client_id + email)
     // Si la migración `contacts.data` aún no se aplicó, seguimos guardando el
     // contacto sin datos extra en lugar de romper el formulario.
@@ -337,6 +399,32 @@ export async function POST(
     }
 
     let contactId: string;
+
+    const previousData =
+      (existingContact?.data as Record<string, unknown> | null) ?? {};
+
+    const mergeList = (current: unknown, value?: string): string[] => {
+      const list = Array.isArray(current)
+        ? current.filter((item): item is string => typeof item === 'string')
+        : [];
+      if (value && !list.includes(value)) list.push(value);
+      return list;
+    };
+
+    const attributionData: Record<string, unknown> = {
+      _attribution: attribution,
+      _first_touch: previousData._first_touch ?? attribution,
+    };
+
+    const visitorIds = mergeList(previousData._visitor_ids, visitorId);
+    if (visitorIds.length > 0) attributionData._visitor_ids = visitorIds;
+
+    const fingerprints = mergeList(previousData._fingerprints, fingerprint);
+    if (fingerprints.length > 0) attributionData._fingerprints = fingerprints;
+
+    if (visitorId) attributionData._visitor_id = visitorId;
+    if (fingerprint) attributionData._fingerprint = fingerprint;
+
     if (existingContact?.id) {
       const baseUpdate = {
         first_name: basics.first_name,
@@ -346,8 +434,9 @@ export async function POST(
 
       if (hasDataColumn) {
         const mergedData = {
-          ...((existingContact.data as Record<string, unknown> | null) ?? {}),
+          ...previousData,
           ...extras,
+          ...attributionData,
         };
         const { error: updateError } = await supabaseAdmin
           .from('contacts')
@@ -387,7 +476,9 @@ export async function POST(
 
       contactId = existingContact.id;
     } else {
-      const insertPayload = hasDataColumn ? { ...basics, data: extras } : basics;
+      const insertPayload = hasDataColumn
+        ? { ...basics, data: { ...extras, ...attributionData } }
+        : basics;
       const { data: newContact, error: createError } = await supabaseAdmin
         .from('contacts')
         .insert(insertPayload)
@@ -445,9 +536,41 @@ export async function POST(
       );
     }
 
-    // 7. Registrar conversión de tracking (nunca bloquea el submit)
-    if (submitted.visitor_id) {
-      try {
+    // 7. Vincular el journey previo y registrar la conversión (nunca bloquea el submit)
+    try {
+      // 7a. Todo el historial de este visitante/dispositivo pasa a ser del contacto.
+      if (visitorId) {
+        const { error: visitorLinkError } = await supabaseAdmin
+          .from('tracking_events')
+          .update({ contact_id: contactId })
+          .eq('visitor_id', visitorId)
+          .is('contact_id', null);
+
+        if (visitorLinkError && !isMissingTrackingColumn(visitorLinkError.message)) {
+          console.warn('[forms submit] visitor link error:', visitorLinkError.message);
+        }
+      }
+
+      if (fingerprint) {
+        const { error: fingerprintLinkError } = await supabaseAdmin
+          .from('tracking_events')
+          .update({ contact_id: contactId })
+          .eq('fingerprint', fingerprint)
+          .is('contact_id', null);
+
+        if (
+          fingerprintLinkError &&
+          !isMissingTrackingColumn(fingerprintLinkError.message)
+        ) {
+          console.warn(
+            '[forms submit] fingerprint link error:',
+            fingerprintLinkError.message
+          );
+        }
+      }
+
+      // 7b. Evento de conversión con toda la atribución.
+      if (visitorId) {
         let trackingSiteId = submitted.site_id || null;
         if (!trackingSiteId) {
           const { data: site } = await supabaseAdmin
@@ -458,18 +581,54 @@ export async function POST(
             .maybeSingle();
           trackingSiteId = site?.id || null;
         }
+
         if (trackingSiteId) {
-          await supabaseAdmin.from('tracking_events').insert({
+          const baseEvent = {
             tracking_site_id: trackingSiteId,
-            visitor_id: submitted.visitor_id,
+            visitor_id: visitorId,
             contact_id: contactId,
             event_type: 'conversion',
-            url: req.headers.get('referer') || '',
-          });
+            url: attribution.page_url || req.headers.get('referer') || '',
+          };
+
+          const fullEvent = {
+            ...baseEvent,
+            referrer: attribution.referrer || null,
+            landing_url: attribution.landing_url || null,
+            utm_source: attribution.utm_source || null,
+            utm_medium: attribution.utm_medium || null,
+            utm_campaign: attribution.utm_campaign || null,
+            utm_term: attribution.utm_term || null,
+            utm_content: attribution.utm_content || null,
+            fingerprint: fingerprint || null,
+            metadata: {
+              form_id: form.id,
+              form_name: form.name,
+              placement: attribution.placement || null,
+            },
+          };
+
+          let { error: conversionError } = await supabaseAdmin
+            .from('tracking_events')
+            .insert(fullEvent);
+
+          if (conversionError && isMissingTrackingColumn(conversionError.message)) {
+            const retry = await supabaseAdmin
+              .from('tracking_events')
+              .insert(baseEvent);
+            conversionError = retry.error;
+          }
+
+          if (conversionError) {
+            console.warn(
+              '[forms submit] conversion insert error:',
+              conversionError.message
+            );
+          }
         }
-      } catch (trackErr) {
-        console.warn('[forms submit] tracking conversion error:', trackErr);
       }
+    } catch (trackErr) {
+      console.warn('[forms submit] tracking conversion error:', trackErr);
     }
 
     // 8. Respuesta según el comportamiento configurado

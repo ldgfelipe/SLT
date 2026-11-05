@@ -8,9 +8,10 @@ import { Stage, Deal } from '@/types/database';
 interface StageColumnProps {
   stage: Stage;
   deals: Deal[];
+  onOpenDeal?: (deal: Deal) => void;
 }
 
-export function StageColumn({ stage, deals }: StageColumnProps) {
+export function StageColumn({ stage, deals, onOpenDeal }: StageColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
   });
@@ -42,7 +43,11 @@ export function StageColumn({ stage, deals }: StageColumnProps) {
 
       <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto min-h-[200px] p-0.5">
         {deals.map((deal) => (
-          <DealCard key={deal.id} deal={deal} />
+          <DealCard
+            key={deal.id}
+            deal={deal}
+            onOpen={onOpenDeal ? () => onOpenDeal(deal) : undefined}
+          />
         ))}
         {deals.length === 0 && (
           <div className="h-24 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg flex items-center justify-center text-xs text-slate-400">

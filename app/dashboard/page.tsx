@@ -7,6 +7,17 @@ import { redirect } from 'next/navigation';
 
 export const instant = false;
 
+function isMissingDataColumn(message?: string): boolean {
+  const text = (message || '').toLowerCase();
+  return (
+    text.includes('data') &&
+    (text.includes('does not exist') ||
+      text.includes('could not find') ||
+      text.includes('schema cache') ||
+      text.includes('undefined column'))
+  );
+}
+
 export default async function DashboardPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect('/login');
@@ -48,32 +59,45 @@ export default async function DashboardPage() {
 
       if (pipeline) {
         // 2. Obtener etapas y deals específicos de este cliente y pipeline
-        const { data: stagesData } = await supabase
-          .from('stages')
-          .select(`
-            id,
-            pipeline_id,
-            name,
-            order,
-            deals (
+        const stagesQuery = (includeContactData: boolean) =>
+          supabase
+            .from('stages')
+            .select(`
               id,
-              client_id,
-              title,
-              value,
-              stage_id,
-              status,
-              created_at,
-              contact:contacts (
+              pipeline_id,
+              name,
+              order,
+              deals (
                 id,
-                first_name,
-                last_name,
-                email,
-                phone
+                client_id,
+                title,
+                value,
+                stage_id,
+                status,
+                created_at,
+                contact:contacts (
+                  id,
+                  first_name,
+                  last_name,
+                  email,
+                  phone${includeContactData ? ',\n                  data' : ''}
+                )
               )
-            )
-          `)
-          .eq('pipeline_id', pipeline.id)
-          .order('order', { ascending: true });
+            `)
+            .eq('pipeline_id', pipeline.id)
+            .order('order', { ascending: true });
+
+        let { data: stagesData, error: stagesError } = await stagesQuery(true);
+
+        // Si `contacts.data` aún no existe (migración pendiente), reintentamos
+        // sin esa columna para no romper el Kanban.
+        if (stagesError && isMissingDataColumn(stagesError.message)) {
+          console.warn(
+            '[dashboard] contacts.data no existe. Ejecuta supabase/migrations/20261104_add_contacts_data.sql'
+          );
+          const retry = await stagesQuery(false);
+          stagesData = retry.data;
+        }
 
         if (stagesData) {
           stages = stagesData as unknown as Stage[];
