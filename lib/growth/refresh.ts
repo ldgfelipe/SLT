@@ -50,12 +50,12 @@ async function refreshToken(
   accessToken: string,
   refreshTokenValue: string
 ): Promise<TokenRefreshResult | null> {
-  const credentials = getProviderCredentials(provider);
+  const credentials = await getProviderCredentials(provider);
   if (!credentials) {
     throw new Error(`Faltan credenciales para ${provider}.`);
   }
 
-  const version = graphVersion();
+  const version = await graphVersion();
 
   switch (provider) {
     case 'facebook':

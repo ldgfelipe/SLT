@@ -61,7 +61,7 @@ export async function GET(
     return redirectWithError(request, 'La red social no devolvió el código.');
   }
 
-  const credentials = getProviderCredentials(provider);
+  const credentials = await getProviderCredentials(provider);
   if (!credentials) {
     return redirectWithError(
       request,

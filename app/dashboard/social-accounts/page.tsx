@@ -106,7 +106,7 @@ export default async function SocialAccountsPage({ searchParams }: PageProps) {
   }
 
   const currentClient = clients.find((client) => client.id === activeClientId);
-  const configured = configuredProviders();
+  const configured = await configuredProviders();
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a1931] p-6 text-slate-100">

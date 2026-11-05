@@ -1,5 +1,5 @@
 import { decryptToken } from './crypto';
-import { graphVersion } from './providers';
+import { graphVersion, linkedinApiVersion } from './providers';
 import { resolveMediaUrl } from './media';
 import type { Post, SocialAccount } from '@/types/database';
 
@@ -79,7 +79,7 @@ async function publishFacebook(
     throw new Error('La cuenta de Facebook no tiene page_id.');
   }
 
-  const version = graphVersion();
+  const version = await graphVersion();
   const mediaUrl = resolveMediaUrl(post.imagen_url);
 
   if (mediaUrl) {
@@ -133,7 +133,7 @@ async function publishInstagram(
     throw new Error('Instagram exige una imagen pública para publicar.');
   }
 
-  const version = graphVersion();
+  const version = await graphVersion();
   const create = await graphPost(
     `https://graph.facebook.com/${version}/${account.ig_user_id}/media`,
     new URLSearchParams({
@@ -175,7 +175,7 @@ async function publishThreads(
     throw new Error('La cuenta de Threads no tiene user_id.');
   }
 
-  const version = graphVersion();
+  const version = await graphVersion();
   const mediaUrl = resolveMediaUrl(post.imagen_url);
   const body = new URLSearchParams({
     text: caption(post).slice(0, 500),
@@ -241,7 +241,7 @@ async function publishLinkedIn(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         'X-Restli-Protocol-Version': '2.0.0',
-        'LinkedIn-Version': process.env.LINKEDIN_API_VERSION || '202410',
+        'LinkedIn-Version': await linkedinApiVersion(),
       },
       body: JSON.stringify({
         author,

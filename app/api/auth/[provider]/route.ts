@@ -55,7 +55,7 @@ export async function GET(
     );
   }
 
-  const credentials = getProviderCredentials(provider);
+  const credentials = await getProviderCredentials(provider);
   if (!credentials) {
     return NextResponse.json(
       {
@@ -90,7 +90,7 @@ export async function GET(
     );
   }
 
-  const authorizeUrl = buildAuthorizeUrl({
+  const authorizeUrl = await buildAuthorizeUrl({
     provider,
     credentials,
     redirectUri,

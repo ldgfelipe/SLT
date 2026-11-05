@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { getSetting } from '@/lib/app/settings';
 
-function verifySignature(raw: string, signature: string | null): boolean {
-  const secret = process.env.META_APP_SECRET;
+async function verifySignature(
+  raw: string,
+  signature: string | null
+): Promise<boolean> {
+  const secret = await getSetting('META_APP_SECRET');
   if (!secret) return false;
   if (!signature || !signature.startsWith('sha256=')) return false;
 
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
   const token = params.get('hub.verify_token');
   const challenge = params.get('hub.challenge');
 
-  const expected = process.env.META_WEBHOOK_VERIFY_TOKEN;
+  const expected = await getSetting('META_WEBHOOK_VERIFY_TOKEN');
 
   if (mode === 'subscribe' && expected && token === expected) {
     return new NextResponse(challenge || '', {
@@ -59,7 +63,10 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get('x-hub-signature-256');
 
   // Si hay App Secret configurado, exigimos firma válida.
-  if (process.env.META_APP_SECRET && !verifySignature(raw, signature)) {
+  if (
+    (await getSetting('META_APP_SECRET')) &&
+    !(await verifySignature(raw, signature))
+  ) {
     return NextResponse.json({ error: 'Firma inválida.' }, { status: 401 });
   }
 

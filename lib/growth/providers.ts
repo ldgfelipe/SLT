@@ -1,4 +1,5 @@
 import type { SocialProvider } from '@/types/database';
+import { findSetting, getSetting } from '@/lib/app/settings';
 
 export interface ProviderMeta {
   id: SocialProvider;
@@ -108,10 +109,10 @@ export interface ProviderCredentials {
   clientSecret: string;
 }
 
-/** Credenciales OAuth por red. Devuelve null si falta configuración. */
-export function getProviderCredentials(
+/** Credenciales OAuth por red (env o app_settings). Devuelve null si falta. */
+export async function getProviderCredentials(
   provider: SocialProvider
-): ProviderCredentials | null {
+): Promise<ProviderCredentials | null> {
   const map: Record<SocialProvider, [string[], string[]]> = {
     facebook: [
       ['META_APP_ID', 'FACEBOOK_APP_ID'],
@@ -129,17 +130,23 @@ export function getProviderCredentials(
   };
 
   const [idKeys, secretKeys] = map[provider];
-  const clientId = idKeys.map((key) => process.env[key]).find(Boolean) || '';
-  const clientSecret =
-    secretKeys.map((key) => process.env[key]).find(Boolean) || '';
+  const clientId = await findSetting(idKeys);
+  const clientSecret = await findSetting(secretKeys);
 
   if (!clientId || !clientSecret) return null;
   return { clientId, clientSecret };
 }
 
-/** Proveedores que ya tienen credenciales en el entorno. */
-export function configuredProviders(): SocialProvider[] {
-  return SOCIAL_PROVIDERS.filter((provider) => getProviderCredentials(provider));
+/** Proveedores que ya tienen credenciales configuradas. */
+export async function configuredProviders(): Promise<SocialProvider[]> {
+  const checks = await Promise.all(
+    SOCIAL_PROVIDERS.map(async (provider) => ({
+      provider,
+      configured: Boolean(await getProviderCredentials(provider)),
+    }))
+  );
+
+  return checks.filter((check) => check.configured).map((check) => check.provider);
 }
 
 /** URL pública de la app (para redirect_uri de OAuth). */
@@ -160,8 +167,12 @@ export function getAppUrl(request?: Request): string {
   return 'http://localhost:3000';
 }
 
-export function graphVersion(): string {
-  return process.env.META_GRAPH_VERSION || 'v20.0';
+export async function graphVersion(): Promise<string> {
+  return (await getSetting('META_GRAPH_VERSION')) || 'v20.0';
+}
+
+export async function linkedinApiVersion(): Promise<string> {
+  return (await getSetting('LINKEDIN_API_VERSION')) || '202410';
 }
 
 export function storageBucket(): string {

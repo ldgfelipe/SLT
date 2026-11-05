@@ -37,6 +37,11 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Growth Hub - tareas programadas
 
+Los secretos del Growth Hub pueden configurarse de dos maneras:
+
+1. En Vercel (`Settings → Environment Variables`). Las variables de Vercel **ganan prioridad** sobre la BD.
+2. En el sitio (**Dashboard → Configuración**, solo root): se guardan cifradas en la tabla interna `app_settings` y el servidor las lee automáticamente.
+
 El plan gratuito (Hobby) de Vercel solo permite **2 tareas programadas**, y ambas deben ser **diarias**. Por eso:
 
 - En `vercel.json` solo queda activo el cron diario:
@@ -52,8 +57,8 @@ El plan gratuito (Hobby) de Vercel solo permite **2 tareas programadas**, y amba
 - Para habilitarlas en Supabase:
   1. `create extension pg_cron;`
   2. `create extension pg_net;`
-  3. Ejecutar la migración `20261105_growth_hub_cron.sql`.
-  4. Configurar el secreto (mismo valor que `CRON_SECRET` en Vercel):
+  3. Ejecutar `supabase/migrations/20261106_app_settings.sql` (tabla interna de secretos) **y** `supabase/migrations/20261105_growth_hub_cron.sql`.
+  4. Configurar el secreto desde **Dashboard → Configuración** o con:
      ```sql
      select public.growth_hub_configure('TU_CRON_SECRET');
      -- Opcional, si el app está en otro dominio:

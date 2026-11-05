@@ -15,6 +15,7 @@ import {
   Share2,
   CalendarDays,
   Megaphone,
+  Settings,
 } from 'lucide-react';
 import { ClientSwitcher } from '@/components/layout/ClientSwitcher';
 import { logoutUser } from '@/app/actions/auth';
@@ -82,6 +83,12 @@ export function DashboardSidebar({
       label: 'Gestión de Usuarios',
       href: '/dashboard/users',
       icon: ShieldAlert,
+      hidden: !isRoot,
+    },
+    {
+      label: 'Configuración',
+      href: '/dashboard/settings',
+      icon: Settings,
       hidden: !isRoot,
     },
   ];

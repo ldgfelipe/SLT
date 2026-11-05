@@ -6,7 +6,7 @@ import { runPostPublish } from '@/lib/growth/run-publish';
 export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorizedCron(request)) {
+  if (!(await isAuthorizedCron(request))) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }
 

@@ -1,4 +1,4 @@
-import { graphVersion, type ProviderCredentials } from './providers';
+import { graphVersion, linkedinApiVersion, type ProviderCredentials } from './providers';
 import type { SocialProvider } from '@/types/database';
 
 export interface DiscoveredAccount {
@@ -71,16 +71,16 @@ async function fetchJson(
   }
 }
 
-export function buildAuthorizeUrl(input: {
+export async function buildAuthorizeUrl(input: {
   provider: SocialProvider;
   credentials: ProviderCredentials;
   redirectUri: string;
   state: string;
   scopes: string[];
   pkceChallenge?: string;
-}): string {
+}): Promise<string> {
   const { provider, credentials, redirectUri, state, scopes, pkceChallenge } = input;
-  const version = graphVersion();
+  const version = await graphVersion();
 
   switch (provider) {
     case 'facebook':
@@ -167,7 +167,7 @@ async function exchangeMetaCode(input: {
   code: string;
   redirectUri: string;
 }): Promise<TokenSet> {
-  const version = graphVersion();
+  const version = await graphVersion();
   const url = new URL(`https://graph.facebook.com/${version}/oauth/access_token`);
   url.searchParams.set('client_id', input.credentials.clientId);
   url.searchParams.set('client_secret', input.credentials.clientSecret);
@@ -202,7 +202,7 @@ async function discoverMetaAccounts(input: {
   provider: 'facebook' | 'instagram';
   accessToken: string;
 }): Promise<DiscoveredAccount[]> {
-  const version = graphVersion();
+  const version = await graphVersion();
   const url = new URL(`https://graph.facebook.com/${version}/me/accounts`);
   url.searchParams.set(
     'fields',
@@ -348,7 +348,7 @@ async function discoverLinkedInAccounts(token: TokenSet): Promise<DiscoveredAcco
   const headers = {
     Authorization: `Bearer ${token.access_token}`,
     'X-Restli-Protocol-Version': '2.0.0',
-    'LinkedIn-Version': process.env.LINKEDIN_API_VERSION || '202410',
+    'LinkedIn-Version': await linkedinApiVersion(),
   };
 
   let profile: any = {};
@@ -490,7 +490,7 @@ async function exchangeThreadsCode(input: {
 }
 
 async function discoverThreadsAccount(token: TokenSet): Promise<DiscoveredAccount[]> {
-  const version = graphVersion();
+  const version = await graphVersion();
   const url = new URL(`https://graph.threads.net/${version}/me`);
   url.searchParams.set('fields', 'id,username,threads_profile_picture_url');
   url.searchParams.set('access_token', token.access_token);

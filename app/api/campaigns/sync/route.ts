@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   let clientIds: string[] = [];
 
-  if (isAuthorizedCron(request)) {
+  if (await isAuthorizedCron(request)) {
     if (requestedClientId) {
       clientIds = [requestedClientId];
     } else {

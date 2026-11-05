@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { decryptToken } from './crypto';
 import { graphVersion } from './providers';
+import { getSetting } from '@/lib/app/settings';
 
 export interface MetaSyncResult {
   clientId: string;
@@ -184,7 +185,7 @@ export async function syncMetaCampaigns(
 
   const rawAdAccountId =
     (account.metadata?.ad_account_id as string | undefined) ||
-    process.env.META_AD_ACCOUNT_ID ||
+    (await getSetting('META_AD_ACCOUNT_ID')) ||
     '';
 
   if (!rawAdAccountId) {
@@ -196,7 +197,7 @@ export async function syncMetaCampaigns(
   }
 
   const adAccountId = rawAdAccountId.replace(/^act_/, '').trim();
-  const version = graphVersion();
+  const version = await graphVersion();
 
   try {
     const campaignFields = [
