@@ -2,8 +2,9 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { CreateTrackingSiteDialog } from '@/components/tracking/CreateTrackingSiteDialog';
 import { TrackingSitesList } from '@/components/tracking/TrackingSitesList';
 import { TrackingEventsList, TrackingEventRow } from '@/components/tracking/TrackingEventsList';
+import { TrackingIpExclusions } from '@/components/tracking/TrackingIpExclusions';
 import { getCurrentUser } from '@/app/actions/auth';
-import { TrackingSite, Client } from '@/types/database';
+import { TrackingSite, Client, TrackingIpExclusion } from '@/types/database';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -20,6 +21,7 @@ export default async function TrackingPage() {
   let totalVisits = 0;
   let uniqueVisitors = 0;
   let totalConversions = 0;
+  let ipExclusions: TrackingIpExclusion[] = [];
 
   try {
     const cookieStore = await cookies();
@@ -50,6 +52,24 @@ export default async function TrackingPage() {
         .order('created_at', { ascending: false });
 
       if (sitesData) sites = sitesData;
+
+      try {
+        const { data: exclusionsData, error: exclusionsError } = await supabase
+          .from('tracking_ip_exclusions')
+          .select('*')
+          .eq('client_id', activeClientId)
+          .order('created_at', { ascending: false });
+
+        if (exclusionsError) {
+          console.warn(
+            '[tracking] tracking_ip_exclusions pendiente. Ejecuta supabase/migrations/20261106_lead_notes_ip_exclusions.sql'
+          );
+        } else {
+          ipExclusions = (exclusionsData || []) as TrackingIpExclusion[];
+        }
+      } catch (exclusionsFetchError) {
+        console.warn('[tracking] exclusions fetch:', exclusionsFetchError);
+      }
 
       // Tráfico capturado (solo usuarios reales filtrados por honey pot en el API)
       if (sites.length > 0) {
@@ -94,6 +114,13 @@ export default async function TrackingPage() {
       </div>
 
       <TrackingSitesList sites={sites} />
+
+      {activeClientId && (
+        <TrackingIpExclusions
+          clientId={activeClientId}
+          initialRules={ipExclusions}
+        />
+      )}
 
       {/* Métricas de tráfico (usuarios reales) */}
       {sites.length > 0 && (

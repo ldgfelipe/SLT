@@ -15,6 +15,7 @@ export default async function ContactsPage() {
   let contacts: Contact[] = [];
   let currentClient: Client | null = null;
   let activeClientId: string | undefined;
+  let clients: Client[] = [];
 
   try {
     const cookieStore = await cookies();
@@ -27,9 +28,10 @@ export default async function ContactsPage() {
     if (currentUser.role === 'client_admin' && currentUser.client_id) {
       clientQuery = clientQuery.eq('id', currentUser.client_id);
     }
-    const { data: clients } = await clientQuery;
+    const { data: clientsData } = await clientQuery;
+    clients = clientsData || [];
 
-    if (clients && clients.length > 0) {
+    if (clients.length > 0) {
       if (currentUser.role === 'client_admin' && currentUser.client_id) {
         activeClientId = currentUser.client_id;
       } else if (!activeClientId || !clients.some((c) => c.id === activeClientId)) {
@@ -73,7 +75,11 @@ export default async function ContactsPage() {
         {activeClientId && <CreateContactDialog clientId={activeClientId} />}
       </div>
 
-      <ContactsList contacts={contacts} />
+      <ContactsList
+        contacts={contacts}
+        clients={clients || []}
+        activeClientId={activeClientId}
+      />
     </div>
   );
 }

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import {
+  extractClientIp,
+  isExcludedIp,
+} from '@/lib/tracking/ip-exclusions';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -116,6 +120,26 @@ export async function POST(req: NextRequest) {
     };
 
     const supabaseAdmin = getSupabaseAdmin();
+
+    // Regla de exclusión de IP (pruebas internas, datos de la agencia, etc.)
+    try {
+      const { data: siteRow } = await supabaseAdmin
+        .from('tracking_sites')
+        .select('client_id')
+        .eq('id', site_id)
+        .maybeSingle();
+
+      const siteClientId = siteRow?.client_id as string | undefined;
+
+      if (siteClientId) {
+        const clientIp = extractClientIp(req);
+        if (await isExcludedIp(supabaseAdmin, siteClientId, clientIp)) {
+          return NextResponse.json({ ok: true }, { status: 200, headers: corsHeaders });
+        }
+      }
+    } catch (exclusionError) {
+      console.warn('[api/track] ip exclusion check:', exclusionError);
+    }
 
     let { error } = await supabaseAdmin.from('tracking_events').insert(fullInsert);
 

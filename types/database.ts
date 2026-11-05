@@ -143,6 +143,47 @@ export interface LeadDetailsPayload {
 }
 
 /* ------------------------------------------------------------------ */
+/* Lead notes / actions                                                */
+/* ------------------------------------------------------------------ */
+
+export type LeadNoteKind =
+  | 'note'
+  | 'action'
+  | 'call'
+  | 'email'
+  | 'whatsapp'
+  | 'meeting';
+
+export interface LeadNote {
+  id: string;
+  client_id: string;
+  deal_id: string | null;
+  contact_id: string | null;
+  author_id: string | null;
+  kind: LeadNoteKind;
+  body: string;
+  due_at: string | null;
+  done: boolean;
+  completed_at: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  author?: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  } | null;
+}
+
+export interface TrackingIpExclusion {
+  id: string;
+  client_id: string;
+  pattern: string;
+  label: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
+/* ------------------------------------------------------------------ */
 /* Growth Hub                                                          */
 /* ------------------------------------------------------------------ */
 

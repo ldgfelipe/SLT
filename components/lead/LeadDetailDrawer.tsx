@@ -17,11 +17,25 @@ import {
   User,
   Sparkles,
   AlertCircle,
+  StickyNote,
+  MessageCircle,
+  CircleCheck,
+  Trash2,
+  CalendarClock,
+  ListChecks,
 } from 'lucide-react';
 import { getLeadDetails } from '@/app/actions/lead';
+import {
+  addLeadNote,
+  deleteLeadNote,
+  listLeadNotes,
+  toggleLeadNote,
+} from '@/app/actions/lead-notes';
 import type {
   LeadDetailsPayload,
   LeadJourneyEvent,
+  LeadNote,
+  LeadNoteKind,
 } from '@/types/database';
 import {
   describeAttribution,
@@ -88,7 +102,14 @@ export function LeadDetailDrawer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [payload, setPayload] = useState<LeadDetailsPayload | null>(null);
-  const [tab, setTab] = useState<'journey' | 'data'>('journey');
+  const [tab, setTab] = useState<'journey' | 'notes' | 'data'>('journey');
+  const [notes, setNotes] = useState<LeadNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState('');
+  const [noteKind, setNoteKind] = useState<LeadNoteKind>('note');
+  const [noteBody, setNoteBody] = useState('');
+  const [noteDue, setNoteDue] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
 
   const lookupKey = dealId || contactId || '';
 
@@ -132,6 +153,30 @@ export function LeadDetailDrawer({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, onClose]);
+
+  async function loadNotes(target: { dealId?: string; contactId?: string }) {
+    setNotesLoading(true);
+    setNotesError('');
+    const result = await listLeadNotes(target);
+    if (!result.success) {
+      setNotesError(result.error);
+      setNotes([]);
+    } else {
+      setNotes(result.notes);
+    }
+    setNotesLoading(false);
+  }
+
+  useEffect(() => {
+    if (!open || tab !== 'notes') return;
+    if (!payload?.deal?.id && !payload?.contact?.id && !dealId && !contactId) return;
+
+    loadNotes({
+      dealId: payload?.deal?.id || dealId,
+      contactId: payload?.contact?.id || contactId,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, tab, payload?.deal?.id, payload?.contact?.id, dealId, contactId]);
 
   const contact = payload?.contact;
   const deal = payload?.deal;
@@ -232,7 +277,7 @@ export function LeadDetailDrawer({
                 </div>
               )}
 
-              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+              <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
                 <a
                   href={`mailto:${contact?.email || ''}`}
                   className="flex items-center gap-1.5 truncate rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-800 dark:text-slate-300"
@@ -246,6 +291,19 @@ export function LeadDetailDrawer({
                 >
                   <Phone className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate">{contact?.phone || 'Sin teléfono'}</span>
+                </a>
+                <a
+                  href={
+                    contact?.phone
+                      ? `https://wa.me/${contact.phone.replace(/\D/g, '')}`
+                      : undefined
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 truncate rounded-lg border border-emerald-200 px-2.5 py-1.5 text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                >
+                  <MessageCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="truncate">WhatsApp</span>
                 </a>
               </div>
             </div>
@@ -261,6 +319,16 @@ export function LeadDetailDrawer({
                 }`}
               >
                 Journey ({events.length})
+              </button>
+              <button
+                onClick={() => setTab('notes')}
+                className={`border-b-2 px-3 py-2 text-xs font-semibold transition ${
+                  tab === 'notes'
+                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+              >
+                Notas y acciones
               </button>
               <button
                 onClick={() => setTab('data')}
@@ -281,6 +349,74 @@ export function LeadDetailDrawer({
                   conversions={conversions}
                   attribution={attribution}
                   firstTouch={firstTouch}
+                />
+              ) : tab === 'notes' ? (
+                <NotesTab
+                  notes={notes}
+                  loading={notesLoading}
+                  error={notesError}
+                  kind={noteKind}
+                  onKindChange={setNoteKind}
+                  body={noteBody}
+                  onBodyChange={setNoteBody}
+                  dueAt={noteDue}
+                  onDueAtChange={setNoteDue}
+                  saving={savingNote}
+                  onSave={async () => {
+                    if (!noteBody.trim()) {
+                      setNotesError('Escribe la nota primero.');
+                      return;
+                    }
+                    setSavingNote(true);
+                    setNotesError('');
+                    const result = await addLeadNote({
+                      dealId: deal?.id,
+                      contactId: contact?.id,
+                      kind: noteKind,
+                      body: noteBody,
+                      dueAt: noteDue || null,
+                    });
+                    setSavingNote(false);
+                    if (!result.success) {
+                      setNotesError(result.error);
+                      return;
+                    }
+                    setNoteBody('');
+                    setNoteDue('');
+                    setNoteKind('note');
+                    await loadNotes({
+                      dealId: deal?.id,
+                      contactId: contact?.id,
+                    });
+                  }}
+                  onToggle={async (note, done) => {
+                    const result = await toggleLeadNote(note.id, done);
+                    if (result.success) {
+                      setNotes((current) =>
+                        current.map((item) =>
+                          item.id === note.id
+                            ? {
+                                ...item,
+                                done,
+                                completed_at: done ? new Date().toISOString() : null,
+                              }
+                            : item
+                        )
+                      );
+                    } else {
+                      setNotesError(result.error);
+                    }
+                  }}
+                  onDelete={async (noteId) => {
+                    const result = await deleteLeadNote(noteId);
+                    if (result.success) {
+                      setNotes((current) =>
+                        current.filter((item) => item.id !== noteId)
+                      );
+                    } else {
+                      setNotesError(result.error);
+                    }
+                  }}
                 />
               ) : (
                 <DataTab
@@ -576,6 +712,230 @@ function Row({
           value
         )}
       </dd>
+    </div>
+  );
+}
+
+const KIND_META: Record<
+  LeadNoteKind,
+  { label: string; icon: React.ComponentType<{ className?: string }>; chip: string }
+> = {
+  note: {
+    label: 'Nota',
+    icon: StickyNote,
+    chip: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+  },
+  action: {
+    label: 'Acción',
+    icon: ListChecks,
+    chip: 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900',
+  },
+  call: {
+    label: 'Llamada',
+    icon: Phone,
+    chip: 'bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900',
+  },
+  email: {
+    label: 'Correo',
+    icon: Mail,
+    chip: 'bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900',
+  },
+  whatsapp: {
+    label: 'WhatsApp',
+    icon: MessageCircle,
+    chip: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900',
+  },
+  meeting: {
+    label: 'Reunión',
+    icon: Calendar,
+    chip: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900',
+  },
+};
+
+function kindDateLabel(dueAt?: string | null, createdAt?: string): string {
+  const date = dueAt ? new Date(dueAt) : null;
+  if (date && !Number.isNaN(date.getTime())) {
+    return `Vence ${formatDateTime(dueAt)}`;
+  }
+  return createdAt ? formatDateTime(createdAt) : 'Sin fecha';
+}
+
+function NotesTab({
+  notes,
+  loading,
+  error,
+  kind,
+  onKindChange,
+  body,
+  onBodyChange,
+  dueAt,
+  onDueAtChange,
+  saving,
+  onSave,
+  onToggle,
+  onDelete,
+}: {
+  notes: LeadNote[];
+  loading: boolean;
+  error: string;
+  kind: LeadNoteKind;
+  onKindChange: (kind: LeadNoteKind) => void;
+  body: string;
+  onBodyChange: (value: string) => void;
+  dueAt: string;
+  onDueAtChange: (value: string) => void;
+  saving: boolean;
+  onSave: () => Promise<void> | void;
+  onToggle: (note: LeadNote, done: boolean) => Promise<void> | void;
+  onDelete: (noteId: string) => Promise<void> | void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          {(Object.keys(KIND_META) as LeadNoteKind[]).map((item) => {
+            const meta = KIND_META[item];
+            const Icon = meta.icon;
+            const active = kind === item;
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => onKindChange(item)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
+                  active
+                    ? 'border-indigo-400 bg-indigo-50 text-indigo-600 dark:border-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300'
+                    : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                <Icon className="h-3 w-3" />
+                {meta.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <textarea
+          value={body}
+          onChange={(event) => onBodyChange(event.target.value)}
+          rows={3}
+          placeholder="Ej. Enviar cotización actualizada y confirmar fecha de entrega…"
+          className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-100"
+        />
+
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <CalendarClock className="h-3.5 w-3.5" />
+            <input
+              type="datetime-local"
+              value={dueAt}
+              onChange={(event) => onDueAtChange(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] outline-none focus:border-indigo-400 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-100"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => onSave()}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <CircleCheck className="h-3.5 w-3.5" />
+            )}
+            Agregar
+          </button>
+        </div>
+
+        {error && (
+          <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+            {error}
+          </p>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+        </div>
+      ) : notes.length === 0 ? (
+        <div className="rounded-xl border-2 border-dashed border-slate-200 px-4 py-8 text-center dark:border-slate-800">
+          <StickyNote className="mx-auto mb-2 h-7 w-7 text-slate-300" />
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            Sin notas ni acciones todavía
+          </p>
+          <p className="mx-auto mt-1 max-w-xs text-[10px] text-slate-400">
+            Registra llamadas, compromisos y seguimiento para no perder el hilo
+            con este lead.
+          </p>
+        </div>
+      ) : (
+        <ol className="space-y-2">
+          {notes.map((note) => {
+            const meta = KIND_META[note.kind] || KIND_META.note;
+            const Icon = meta.icon;
+            const author = note.author?.name || note.author?.email || 'Tú';
+            return (
+              <li
+                key={note.id}
+                className={`rounded-xl border p-3 transition ${
+                  note.done
+                    ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20'
+                    : 'border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.chip}`}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {meta.label}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {author} · {kindDateLabel(note.due_at, note.created_at)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {note.kind === 'action' && (
+                      <button
+                        onClick={() => onToggle(note, !note.done)}
+                        title={note.done ? 'Marcar pendiente' : 'Marcar completada'}
+                        className={`rounded-lg p-1.5 transition ${
+                          note.done
+                            ? 'text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-950'
+                            : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <CircleCheck className="h-4 w-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (confirm('¿Eliminar esta nota?')) onDelete(note.id);
+                      }}
+                      title="Eliminar"
+                      className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                <p
+                  className={`mt-1.5 whitespace-pre-wrap text-[12px] leading-relaxed ${
+                    note.done
+                      ? 'text-slate-500 line-through dark:text-slate-500'
+                      : 'text-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  {note.body}
+                </p>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }
