@@ -4,6 +4,7 @@ import {
   extractClientIp,
   isExcludedIp,
 } from '@/lib/tracking/ip-exclusions';
+import { enforceTrackingLimit } from '@/lib/tracking/enforce-limit';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
     };
 
     const supabaseAdmin = getSupabaseAdmin();
+    let siteClientId: string | undefined;
 
     // Regla de exclusión de IP (pruebas internas, datos de la agencia, etc.)
     try {
@@ -129,16 +131,19 @@ export async function POST(req: NextRequest) {
         .eq('id', site_id)
         .maybeSingle();
 
-      const siteClientId = siteRow?.client_id as string | undefined;
+      siteClientId = siteRow?.client_id as string | undefined;
 
       if (siteClientId) {
         const clientIp = extractClientIp(req);
         if (await isExcludedIp(supabaseAdmin, siteClientId, clientIp)) {
           return NextResponse.json({ ok: true }, { status: 200, headers: corsHeaders });
         }
+
+        // Límite de registros: purga los más antiguos si se alcanzó el máximo
+        await enforceTrackingLimit(supabaseAdmin, siteClientId);
       }
     } catch (exclusionError) {
-      console.warn('[api/track] ip exclusion check:', exclusionError);
+      console.warn('[api/track] ip exclusion/limit check:', exclusionError);
     }
 
     let { error } = await supabaseAdmin.from('tracking_events').insert(fullInsert);

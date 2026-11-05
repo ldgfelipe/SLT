@@ -3,6 +3,8 @@ import { CreateTrackingSiteDialog } from '@/components/tracking/CreateTrackingSi
 import { TrackingSitesList } from '@/components/tracking/TrackingSitesList';
 import { TrackingEventsList, TrackingEventRow } from '@/components/tracking/TrackingEventsList';
 import { TrackingIpExclusions } from '@/components/tracking/TrackingIpExclusions';
+import { TrackingMaintenance } from '@/components/tracking/TrackingMaintenance';
+import { getTrackingStats, type TrackingStats } from '@/app/actions/tracking-maintenance';
 import { getCurrentUser } from '@/app/actions/auth';
 import { TrackingSite, Client, TrackingIpExclusion } from '@/types/database';
 import { cookies } from 'next/headers';
@@ -22,6 +24,14 @@ export default async function TrackingPage() {
   let uniqueVisitors = 0;
   let totalConversions = 0;
   let ipExclusions: TrackingIpExclusion[] = [];
+  let trackingStats: TrackingStats = {
+    total: 0,
+    maxEvents: 10000,
+    percent: 0,
+    alert: 'ok',
+    oldest: null,
+    newest: null,
+  };
 
   try {
     const cookieStore = await cookies();
@@ -69,6 +79,15 @@ export default async function TrackingPage() {
         }
       } catch (exclusionsFetchError) {
         console.warn('[tracking] exclusions fetch:', exclusionsFetchError);
+      }
+
+      try {
+        const statsResult = await getTrackingStats(activeClientId);
+        if (statsResult.success) {
+          trackingStats = statsResult.stats;
+        }
+      } catch (statsError) {
+        console.warn('[tracking] stats fetch:', statsError);
       }
 
       // Tráfico capturado (solo usuarios reales filtrados por honey pot en el API)
@@ -119,6 +138,14 @@ export default async function TrackingPage() {
         <TrackingIpExclusions
           clientId={activeClientId}
           initialRules={ipExclusions}
+        />
+      )}
+
+      {activeClientId && (
+        <TrackingMaintenance
+          clientId={activeClientId}
+          siteOptions={sites.map((site) => ({ id: site.id, domain: site.domain }))}
+          initialStats={trackingStats}
         />
       )}
 

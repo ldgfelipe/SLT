@@ -70,3 +70,14 @@ El plan gratuito (Hobby) de Vercel solo permite **2 tareas programadas**, y amba
      ```
 
 > Si se sube a un plan de pago en Vercel, basta con restaurar en `vercel.json` los crons frecuentes (`*/5` y `0 * * * *`) y las rutas `CRON_SECRET`-protegidas.
+
+## Pixel & Tracking - mantenimiento
+
+En **Dashboard → Pixel & Tracking** también puedes:
+
+- **Exportar CSV** de los eventos (con BOM UTF-8, filtrable por sitio y rango de fechas, máx. 50,000 registros).
+- **Purgar antiguos**: conserva los registros más recientes según el límite configurado.
+- **Borrar todo**: elimina todos los eventos del cliente; requiere escribir `BORRAR`.
+- **Límite de registros** por cliente (default 10,000). El endpoint `/api/track` purga los eventos más antiguos automáticamente cuando se alcanza el límite. Se muestra una alerta al 80% y al 100%.
+
+Las exclusiones de IP también se administran en esa misma sección.
