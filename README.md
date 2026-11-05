@@ -34,3 +34,25 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Growth Hub - tareas programadas
+
+El plan gratuito (Hobby) de Vercel solo permite **2 tareas programadas**, y ambas deben ser **diarias**. Por eso:
+
+- En `vercel.json` solo queda activo el cron diario:
+  - `POST /api/auth/refresh-tokens` → `0 6 * * *`
+
+- Las frecuencias que el negocio requieren (`*/5` publicación, `0 * * * *` campañas) se ejecutan desde **Supabase** mediante la extensión `pg_cron` + `pg_net`, a través de los endpoints del Growth Hub:
+
+  - `/api/publish/cron` → `*/5 * * * *`
+  - `/api/campaigns/sync` → `0 * * * *`
+
+  Migración: `supabase/migrations/20261105_growth_hub_cron.sql`
+
+- Para habilitarlas en Supabase:
+  1. `create extension pg_cron;`
+  2. `create extension pg_net;`
+  3. Configurar `app.cron_secret` y `app.supabase_api_key` (o `ALTER DATABASE ... SET`).
+  4. Ejecutar la migración anterior (crea los jobs `growth_hub_publish_due`, `growth_hub_campaigns_sync` y `growth_hub_token_refresh`).
+
+> Si se sube a un plan de pago en Vercel, basta con restaurar en `vercel.json` los crons frecuentes (`*/5` y `0 * * * *`) y las rutas `CRON_SECRET`-protegidas.
