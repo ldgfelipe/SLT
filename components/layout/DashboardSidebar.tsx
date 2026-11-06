@@ -16,6 +16,11 @@ import {
   CalendarDays,
   Megaphone,
   Settings,
+  Mail,
+  ListChecks,
+  Upload,
+  BadgeCheck,
+  Plug,
 } from 'lucide-react';
 import { ClientSwitcher } from '@/components/layout/ClientSwitcher';
 import { logoutUser } from '@/app/actions/auth';
@@ -78,6 +83,31 @@ export function DashboardSidebar({
       label: 'Campañas Ads',
       href: '/dashboard/campaigns',
       icon: Megaphone,
+    },
+    {
+      label: 'Campañas Mail',
+      href: '/dashboard/mail-center/campanas',
+      icon: Mail,
+    },
+    {
+      label: 'Listas y Contactos',
+      href: '/dashboard/mail-center/listas',
+      icon: ListChecks,
+    },
+    {
+      label: 'Importar CSV',
+      href: '/dashboard/mail-center/importar',
+      icon: Upload,
+    },
+    {
+      label: 'Validar Correos',
+      href: '/dashboard/mail-center/validacion',
+      icon: BadgeCheck,
+    },
+    {
+      label: 'Integraciones Mail',
+      href: '/dashboard/mail-center/integraciones',
+      icon: Plug,
     },
     {
       label: 'Gestión de Usuarios',

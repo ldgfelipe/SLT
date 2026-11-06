@@ -25,6 +25,7 @@ export interface Contact {
   email: string;
   phone: string | null;
   data?: Record<string, any>;
+  mail_state?: string;
   created_at?: string;
 }
 
@@ -140,6 +141,113 @@ export interface LeadDetailsPayload {
   contact: Contact;
   deal: Deal | null;
   events: LeadJourneyEvent[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Mail Center                                                         */
+/* ------------------------------------------------------------------ */
+
+export interface MailListState {
+  id: string;
+  client_id: string;
+  estado: string;
+  etiqueta: string;
+  color: string;
+  orden: number;
+}
+
+export interface MailList {
+  id: string;
+  client_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  contact_count?: number;
+}
+
+export interface MailConnection {
+  id: string;
+  client_id: string;
+  nombre: string;
+  proveedor: string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MailCampaign {
+  id: string;
+  client_id: string;
+  name: string;
+  subject: string;
+  html: string | null;
+  lista_id: string | null;
+  canal_tipo: 'smtp' | 'api';
+  canal_id: string | null;
+  sender_name: string | null;
+  sender_email: string | null;
+  estado:
+    | 'borrador'
+    | 'programada'
+    | 'enviando'
+    | 'pausada'
+    | 'enviada'
+    | 'cancelada'
+    | 'error';
+  total_destinatarios: number;
+  enviados: number;
+  abiertos: number;
+  clics: number;
+  rebotados: number;
+  invalidos: number;
+  scheduled_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  error_log: string | null;
+  created_at: string;
+  updated_at: string;
+  lista?: Pick<MailList, 'id' | 'name'> | null;
+  conexion?: Pick<MailConnection, 'id' | 'nombre' | 'proveedor'> | null;
+}
+
+export interface MailCampaignSend {
+  id: string;
+  campana_id: string;
+  client_id: string;
+  contacto_id: string | null;
+  email: string;
+  estado: 'pendiente' | 'enviando' | 'enviado' | 'error' | 'no_suscrito';
+  detalle: string | null;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export interface SesConfig {
+  conexion_id: string;
+  limite_diario: number;
+  max_por_minuto: number | null;
+  max_por_segundo: number;
+  usar_tracking: boolean;
+  dominio_tracking: string | null;
+  correo_bajas: string | null;
+  updated_at: string;
+}
+
+export interface SesBaja {
+  id: string;
+  client_id: string;
+  email: string;
+  motivo: string;
+  origen: string;
+  campana_id: string | null;
+  detalle: string | null;
+  created_at: string;
+}
+
+export interface MailSettings {
+  client_id: string;
+  limite_diario: number;
+  updated_at: string;
 }
 
 /* ------------------------------------------------------------------ */

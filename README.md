@@ -90,3 +90,18 @@ En **Dashboard → Pipelines (Kanban)** el botón **Agregar lead** permite:
 - Crear un contacto nuevo (nombre, correo, teléfono opcionales).
 
 En ambos casos se crea la oportunidad en el pipeline (título automático editable, valor esperado y etapa inicial) y el lead aparece en Contactos y en el Kanban listo para el proceso comercial.
+
+## Mail Center (Fase 1)
+
+Nuevo bloque en el menú lateral:
+
+- **Campañas Mail** — dashboard con enviados hoy, cupo restante, activas/programadas/pausadas. Crear/editar/duplicar/eliminar, programar o enviar ahora, lotes de 200 (con resincronización automática al abrir la vista) y bitácora por campaña.
+- **Listas y Contactos** — listas por cliente, búsqueda, estados de suscripción personalizables, selección masiva, copiar a otra lista y exportación CSV.
+- **Importar CSV** — detección automática de columnas (email obligatorio), omitir duplicados y agregar a lista.
+- **Validar Correos** — formato + registro MX (DNS), con opción de eliminar inválidos de una lista.
+- **Integraciones SMTP / API** — Brevo, SendGrid, Mailgun, MailRelay, MailerLite, Mandrill, Resend, Amazon SES, SMTP2GO, Zoho y HTTP genérico. Prueba real de conexión, cuotas de SES por conexión (tope de 14/s), límite diario del ambiente (default 300, no aplica a SES) y base de bajas (supresión) con reactivar/borrar.
+- **Tracking** — apertura (píxel), clics (redirección firmada HMAC), bajas firmadas con One-Click (RFC 8058) y encabezado List-Unsubscribe. Endpoints: `/api/mail/open`, `/api/mail/click`, `/api/mail/unsubscribe`, `/api/mail/cron`, `/api/mail/ses-webhook`.
+
+Migración requerida: `supabase/migrations/20261106_mail_center.sql`.
+
+> Para envíos automáticos programados: configura el cron de Supabase (pg_cron) apuntando a `POST /api/mail/cron` con `Authorization: Bearer $CRON_SECRET`, o usa un plan de Vercel con crons.
