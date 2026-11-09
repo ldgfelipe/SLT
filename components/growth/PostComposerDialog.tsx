@@ -71,7 +71,7 @@ export function PostComposerDialog({
   const [descripcion, setDescripcion] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [platforms, setPlatforms] = useState<SocialProvider[]>([]);
-  const [accountId, setAccountId] = useState('');
+  const [accountIds, setAccountIds] = useState<string[]>([]);
   const [autoQueue, setAutoQueue] = useState(true);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -89,7 +89,7 @@ export function PostComposerDialog({
         ? (post!.plataformas as SocialProvider[])
         : ['facebook', 'instagram']
     );
-    setAccountId(post?.social_account_id || '');
+    setAccountIds(post?.social_account_id ? [post.social_account_id] : []);
     setAutoQueue(post ? post.status !== 'draft' : true);
     setImageFile(null);
     setPreview(resolveMediaUrl(post?.imagen_url));
@@ -118,6 +118,14 @@ export function PostComposerDialog({
       current.includes(provider)
         ? current.filter((item) => item !== provider)
         : [...current, provider]
+    );
+  };
+
+  const toggleAccount = (id: string) => {
+    setAccountIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id]
     );
   };
 
@@ -175,7 +183,7 @@ export function PostComposerDialog({
             descripcion,
             plataformas: platforms,
             scheduled_at: scheduledIso,
-            social_account_id: accountId || null,
+            social_account_ids: accountIds.length > 0 ? accountIds : null,
             status,
           }),
         });
@@ -191,7 +199,7 @@ export function PostComposerDialog({
         form.set('plataformas', JSON.stringify(platforms));
         form.set('scheduled_at', scheduledIso);
         form.set('status', autoQueue ? 'queued' : 'draft');
-        if (accountId) form.set('social_account_id', accountId);
+        if (accountIds.length > 0) form.set('social_account_ids', JSON.stringify(accountIds));
         if (imageFile) form.set('image', imageFile);
 
         const response = await fetch('/api/posts', {
@@ -311,20 +319,50 @@ export function PostComposerDialog({
 
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Cuenta (opcional)
+                Cuentas para publicar
               </label>
-              <select
-                value={accountId}
-                onChange={(event) => setAccountId(event.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-              >
-                <option value="">Automática por red</option>
-                {availableAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {PROVIDERS[account.provider].label} · {account.account_name}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-2 max-h-48 overflow-y-auto space-y-2">
+                {SOCIAL_PROVIDERS.map((provider) => {
+                  const providerAccounts = accounts.filter(
+                    (account) => account.provider === provider
+                  );
+                  if (providerAccounts.length === 0) return null;
+                  return (
+                    <div
+                      key={provider}
+                      className="rounded-lg border border-white/10 bg-[#0c1f3d] p-3"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <ProviderIcon
+                          provider={provider}
+                          className="h-4 w-4"
+                        />
+                        <span className="text-xs font-semibold text-white">
+                          {PROVIDERS[provider].label}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {providerAccounts.map((account) => (
+                          <label
+                            key={account.id}
+                            className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={accountIds.includes(account.id)}
+                              onChange={() => toggleAccount(account.id)}
+                              className="h-4 w-4 rounded border-white/20 bg-[#0a1931]"
+                            />
+                            <span className="truncate">
+                              {account.account_name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
