@@ -205,6 +205,25 @@ export function DashboardSidebar({
             </button>
           </form>
         </div>
+
+        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+          <a
+            href="https://tudominio.com/privacy-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[#00d4ff] transition"
+          >
+            Política de privacidad
+          </a>
+          <a
+            href="https://tudominio.com/data-deletion"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[#00d4ff] transition"
+          >
+            Eliminar mis datos
+          </a>
+        </div>
       </div>
     </aside>
   );
