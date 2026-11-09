@@ -110,6 +110,27 @@ export async function PATCH(
     update.social_account_id = body.social_account_id || null;
   }
 
+  // Nuevo: manejar múltiples cuentas
+  if (body?.social_account_ids !== undefined) {
+    const accountIds = body.social_account_ids;
+    if (Array.isArray(accountIds) && accountIds.length > 0) {
+      // Validar que todos los IDs pertenecen al cliente
+      const { data: accounts } = await supabase
+        .from('social_accounts')
+        .select('id')
+        .in('id', accountIds)
+        .eq('client_id', post.client_id);
+
+      if (!accounts || accounts.length !== accountIds.length) {
+        return NextResponse.json(
+          { error: 'Una o más cuentas sociales no pertenecen al cliente.' },
+          { status: 400 }
+        );
+      }
+    }
+    update.social_account_ids = accountIds || null;
+  }
+
   if (body?.campaign_id !== undefined) {
     update.campaign_id = body.campaign_id || null;
   }

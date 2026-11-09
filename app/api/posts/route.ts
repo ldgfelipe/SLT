@@ -97,6 +97,16 @@ export async function POST(request: NextRequest) {
         if (typeof value === 'string') payload[key] = value;
       }
 
+      // Nuevo: leer social_account_ids como JSON
+      const accountIdsRaw = form.get('social_account_ids');
+      if (typeof accountIdsRaw === 'string' && accountIdsRaw) {
+        try {
+          payload.social_account_ids = JSON.parse(accountIdsRaw);
+        } catch {
+          // Si no es JSON válido, ignora
+        }
+      }
+
       payload.plataformas = normalizePlatforms(form.get('plataformas'));
 
       const uploaded = form.get('image');
@@ -237,6 +247,7 @@ export async function POST(request: NextRequest) {
     .insert({
       client_id: clientId,
       social_account_id: payload.social_account_id || null,
+      social_account_ids: payload.social_account_ids || null,
       campaign_id: payload.campaign_id || null,
       titulo: titulo.slice(0, 200),
       descripcion:

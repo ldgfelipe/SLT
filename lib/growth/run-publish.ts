@@ -21,33 +21,42 @@ async function resolveTargets(post: Post): Promise<SocialAccountWithSecret[]> {
   const supabase = getSupabaseAdmin();
   const targets: SocialAccountWithSecret[] = [];
 
-  if (post.social_account_id) {
+  // 1. Priorizar cuentas específicas seleccionadas (social_account_ids)
+  const accountIds = (post as any).social_account_ids || post.social_account_id;
+  if (accountIds) {
+    const ids = Array.isArray(accountIds) ? accountIds : [accountIds];
     const { data } = await supabase
       .from('social_accounts')
       .select('*')
-      .eq('id', post.social_account_id)
+      .in('id', ids)
       .eq('status', 'active')
-      .maybeSingle();
+      .eq('client_id', post.client_id);
 
-    if (data) targets.push(data as SocialAccountWithSecret);
+    if (data) {
+      targets.push(...(data as SocialAccountWithSecret[]));
+    }
   }
 
-  if (targets.length > 0) return targets;
+  // 2. Fallback: buscar automáticamente por plataforma
+  if (targets.length === 0) {
+    const platforms = Array.isArray(post.plataformas)
+      ? post.plataformas
+      : [];
 
-  const platforms = Array.isArray(post.plataformas) ? post.plataformas : [];
-  for (const provider of platforms) {
-    const { data } = await supabase
-      .from('social_accounts')
-      .select('*')
-      .eq('client_id', post.client_id)
-      .eq('provider', provider)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    for (const provider of platforms) {
+      const { data } = await supabase
+        .from('social_accounts')
+        .select('*')
+        .eq('client_id', post.client_id)
+        .eq('provider', provider)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (data && !targets.some((item) => item.id === data.id)) {
-      targets.push(data as SocialAccountWithSecret);
+      if (data && !targets.some((item) => item.id === data.id)) {
+        targets.push(data as SocialAccountWithSecret);
+      }
     }
   }
 
