@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function DataDeletionPage() {
@@ -9,8 +9,10 @@ export default function DataDeletionPage() {
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
 
-  const handleSubmit = async (email: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setProcessing(true);
     setError(null);
     setSuccess(false);
@@ -76,13 +78,7 @@ export default function DataDeletionPage() {
               de tus datos personales de nuestra base de datos.
             </p>
 
-            <form
-              onSubmit={async (e: React.FormEvent) => {
-                e.preventDefault();
-                const input = e.target.elements.email as HTMLInputElement;
-                await handleSubmit(input.value);
-              }}
-            >
+            <form onSubmit={handleSubmit}>
               <div className="grid gap-3 mb-4">
                 <div className="sm:col-span-2">
                   <label
@@ -96,8 +92,8 @@ export default function DataDeletionPage() {
                     type="email"
                     name="email"
                     required
-                    value={''}
-                    onChange={(e) => {}}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full rounded-lg border border-white/10 bg-[#0a1931] px-4 py-2.5 text-xs text-white outline-none placeholder:text-slate-500 focus:border-[#00d4ff]"
                   />
                 </div>
