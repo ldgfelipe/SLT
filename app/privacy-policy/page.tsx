@@ -32,8 +32,8 @@ export default function PrivacyPolicyPage() {
             <li><strong>Datos de usuario:</strong> Nombre, email, rol (admin/client_admin/operator), estado de la cuenta.</li>
             <li><strong>Datos de cliente:</strong> Nombre del cliente, slug, configuraciones multi-tenant.</li>
             <li><strong>Datos de contacto:</strong> Email, nombre, empresa, teléfono, datos adicionales (custom fields).</li>
-            <li><strong>Datos de actividad:</bitácora de acciones, fechas de creación, envíos de campañas, aberturas, clics.</li>
-            <li><strong>Datos técnicos:</bitácora de IP, fingerprint del navegador, user-agent, páginas visitadas.</li>
+            <li><strong>Datos de actividad:</strong> bitácora de acciones, fechas de creación, envíos de campañas, aberturas, clics.</li>
+            <li><strong>Datos técnicos:</strong> bitácora de IP, fingerprint del navegador, user-agent, páginas visitadas.</li>
             <li><strong>Integraciones:</strong> Credenciales cifradas para proveedores de email (Brevo, SendGrid, Amazon SES, SMTP), tokens OAuth de redes sociales (Facebook, Instagram, LinkedIn, X, TikTok).</li>
           </ul>
 
