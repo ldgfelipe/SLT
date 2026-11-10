@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Save, RefreshCw, AlertCircle, Check, ChevronDown } from 'lucide-react';
+import { Loader2, Save, RefreshCw, AlertCircle, Check, ChevronDown, StatusIcon } from 'lucide-react';
 import { SOCIAL_PROVIDERS } from '@/lib/growth/sandbox-config';
 
 interface SocialProviderConfig {
@@ -15,7 +15,34 @@ interface SocialProviderConfig {
     client_secret: string;
     target_user_id?: string;
   };
+  // Estado visual
+  status: 'red' | 'yellow' | 'green';
 }
+
+// Estado visual por red
+const STATUS_INDICATORS = {
+  red: { 
+    bg: 'bg-amber-500/20', 
+    border: 'border-amber-500/40', 
+    text: 'text-amber-400',
+    icon: '⚪',
+    label: 'No configurada'
+  },
+  yellow: { 
+    bg: 'bg-yellow-500/20', 
+    border: 'border-yellow-500/40', 
+    text: 'text-yellow-400',
+    icon: '⚠️',
+    label: 'Sin conectar'
+  },
+  green: { 
+    bg: 'bg-emerald-500/20', 
+    border: 'border-emerald-500/40', 
+    text: 'text-emerald-400',
+    icon: '✓',
+    label: 'Conectada'
+  }
+};
 
 export function SandboxSettings({ clientId }: { clientId?: string }) {
   const [configs, setConfigs] = useState<Record<string, SocialProviderConfig>>({});
@@ -48,6 +75,7 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
 
   useEffect(() => {
     loadSettings();
+    loadConnectionStatus();
   }, []);
 
   const loadSettings = async () => {
@@ -56,7 +84,6 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
       const newConfigs: Record<string, SocialProviderConfig> = {};
       
       for (const provider of SOCIAL_PROVIDERS) {
-        const [idKey, secretKey] = PRODUCTION_KEYS[provider] || ['', ''];
         const enabledRaw = await getSetting(`SANDBOX_${provider.toUpperCase()}_ENABLED`);
         const targetRaw = await getSetting(`SANDBOX_${provider.toUpperCase()}_TARGET`);
         
@@ -71,6 +98,7 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
             client_secret: '',
             target_user_id: targetRaw || undefined,
           },
+          status: 'red', // Estado inicial
         };
       }
       
@@ -88,7 +116,36 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
     }
   };
 
-  // Helper function to get setting
+  const loadConnectionStatus = async () => {
+    try {
+      // Verificar conexiones existentes desde social_accounts
+      const response = await fetch('/api/social-accounts/status');
+      const data = await response.json();
+      
+      setConfigs(prev => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach(provider => {
+          const account = data?.accounts?.find((a: any) => a.provider === provider);
+          const hasProdKeys = prev[provider].production.client_id && prev[provider].production.client_secret;
+          
+          if (account) {
+            // Tiene cuenta conectada
+            updated[provider].status = 'green';
+          } else if (hasProdKeys) {
+            // Tiene claves pero no conectado
+            updated[provider].status = 'yellow';
+          } else {
+            // No tiene claves
+            updated[provider].status = 'red';
+          }
+        });
+        return updated;
+      });
+    } catch (e) {
+      console.warn('No se pudo cargar estado de conexiones');
+    }
+  };
+
   const getSetting = async (key: string): Promise<string | null> => {
     try {
       const response = await fetch(`/api/settings/sandbox`);
@@ -176,42 +233,55 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-white mb-4">Configuración por Red Social</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">Estado de Redes Sociales</h3>
         <p className="text-xs text-slate-400 mb-6">
-          Ingresa las claves de producción y/o sandbox para cada red social. 
-          Usa el toggle para alternar entre modo producción y sandbox.
+          <span className="block">🔴 No configurada | 🟡 Sin conectar | 🟢 Conectada</span>
+          Usa el acordeón para ver detalles por red social
         </p>
         
         <div className="rounded-2xl border border-white/10 bg-[#0c1f3d] p-6">
-          <div className="space-y-4">
+          <div className="space-y-3">
             {SOCIAL_PROVIDERS.map((provider) => {
               const config = configs[provider] || {
                 sandbox: false,
                 production: { client_id: '', client_secret: '' },
                 sandbox_keys: { client_id: '', client_secret: '', target_user_id: '' },
+                status: 'red',
               };
+              const indicator = STATUS_INDICATORS[config.status];
               const isOpen = expanded[provider];
               
               return (
-                <div key={provider} className="border border-white/10 rounded-xl bg-[#0a1931]/30">
+                <div key={provider} className={`border border-white/10 rounded-xl bg-[#0a1931]/30 ${indicator.bg} ${indicator.border}`}>
                   <button
                     onClick={() => setExpanded(prev => ({ ...prev, [provider]: !isOpen }))}
                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition"
                   >
                     <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${indicator.text} ${indicator.bg}`}>
+                        {indicator.icon}
+                      </div>
                       <span className="text-sm font-medium text-white capitalize">{provider}</span>
+                      <span className={`text-xs ${indicator.text}`}>
+                        {indicator.label}
+                      </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-400 mr-4">
+                      <span className="text-xs text-slate-400">
                         {config.sandbox ? 'Sandbox' : 'Producción'}
                       </span>
                       <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={config.sandbox}
-                          onChange={(e) => handleToggle(provider, e.target.checked)}
-                          className="h-4 w-4 rounded border-white/20 bg-[#0a1931]"
-                        />
+                        <label className="relative inline-flex h-5 w-9 items-center">
+                          <input
+                            type="checkbox"
+                            checked={config.sandbox}
+                            onChange={(e) => handleToggle(provider, e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`inline-block h-5 w-5 rounded-full transition-transform ${
+                            config.sandbox ? 'translate-x-5 bg-[#00d4ff]' : 'translate-x-1 bg-slate-600'
+                          }`}></div>
+                        </label>
                       </div>
                       <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                     </div>
@@ -253,7 +323,7 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
                       </div>
 
                       {/* Sandbox */}
-                      <div>
+                      <div className="border-t border-white/5 pt-3">
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-2">
                           Sandbox/Prueba
                         </h4>
