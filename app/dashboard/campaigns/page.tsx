@@ -18,6 +18,7 @@ import {
   type CampaignTableRow,
 } from '@/components/growth/CampaignsTable';
 import type { Campaign, Client } from '@/types/database';
+import { CampaignGeneratorDialog } from '@/components/growth/CampaignGeneratorDialog';
 
 export const instant = false;
 

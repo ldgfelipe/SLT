@@ -341,6 +341,9 @@ export interface Campaign {
   ends_at: string | null;
   last_synced_at: string | null;
   created_at: string;
+  updated_at?: string | null;
+  metadata?: Record<string, any> | null;
+  key_messages?: string[] | null;
 }
 
 export interface Post {
