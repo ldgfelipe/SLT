@@ -101,8 +101,14 @@ export async function buildAuthorizeUrl(input: {
       url.searchParams.set('state', state);
       url.searchParams.set('response_type', 'code');
       url.searchParams.set('scope', scopes.join(','));
-      // Agregar non_sandbox_target para entornos de pruebas
-      url.searchParams.set('non_sandbox_target', 'test_user');
+      
+      // Modo sandbox: agregar non_sandbox_target si existe en settings
+      // Esto permite probar con usuarios de prueba sin modificar el código
+      const sandboxTarget = process.env.TIKTOK_SANDBOX_TARGET || '';
+      if (sandboxTarget) {
+        url.searchParams.set('non_sandbox_target', sandboxTarget);
+      }
+      
       return url.toString();
     }
 
