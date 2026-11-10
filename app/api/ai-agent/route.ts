@@ -153,15 +153,35 @@ export async function POST(request: NextRequest) {
   // Obtener client_id del usuario
   const { data: userData } = await supabase
     .from('users')
-    .select('client_id')
+    .select('client_id, role')
     .eq('id', user.id)
     .single();
 
-  if (!userData?.client_id) {
-    return NextResponse.json({ error: 'Usuario no tiene client_id.' }, { status: 400 });
+  // Si el usuario no tiene client_id, intentar usar el primer cliente disponible
+  let clientId: string | null = userData?.client_id || null;
+
+  if (!clientId && user.role === 'root') {
+    // Root puede usar cualquier cliente, usar el primero disponible
+    const { data: clients } = await supabase
+      .from('clients')
+      .select('id')
+      .order('created_at')
+      .limit(1);
+    
+    if (clients && clients.length > 0) {
+      clientId = clients[0].id;
+    }
   }
 
-  const clientId = userData.client_id;
+  // Para acciones que no requieren guardado, permitir sin client_id
+  const actionsWithoutClientId = ['generate_image_prompt'];
+  const requiresClientId = !actionsWithoutClientId.includes(action);
+
+  if (!clientId && requiresClientId) {
+    return NextResponse.json({ 
+      error: 'Usuario no tiene client_id. Asigna un cliente al usuario o contacta al administrador.' 
+    }, { status: 400 });
+  }
 
   try {
     switch (action) {
