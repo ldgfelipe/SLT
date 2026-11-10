@@ -1,115 +1,89 @@
-import { getSetting, setSettings, deleteSetting } from '@/lib/app/settings';
+import { getSetting } from '@/lib/app/settings';
+import { setSettings, deleteSetting } from '@/lib/app/settings';
 
-/**
- * Configuración de modo sandbox para redes sociales
- * 
- * Para habilitar sandbox en todas las redes:
- * - Variable de entorno: NEXT_PUBLIC_SANDBOX_MODE=true
- * - O en app_settings: SANDBOX_MODE = true
- */
+export type SocialProvider = 'facebook' | 'instagram' | 'tiktok' | 'linkedin' | 'x' | 'threads' | 'youtube';
 
-export type SocialProviderSandboxConfig = {
+export interface ProviderSandboxConfig {
   enabled: boolean;
-  target?: string; // user_id específico para sandbox
-  testAccountId?: string;
-};
+  target?: string | null;
+}
 
 export const SOCIAL_PROVIDERS = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'threads', 'youtube'] as const;
-
-export type SocialProvider = typeof SOCIAL_PROVIDERS[number];
-
-// Configurable por provider
-const DEFAULT_SANDBOX_CONFIG: Record<SocialProvider, SocialProviderSandboxConfig> = {
-  facebook: { enabled: false, target: undefined },
-  instagram: { enabled: false, target: undefined },
-  tiktok: { enabled: false, target: undefined },
-  linkedin: { enabled: false, target: undefined },
-  x: { enabled: false, target: undefined },
-  threads: { enabled: false, target: undefined },
-  youtube: { enabled: false, target: undefined },
-};
 
 /**
  * Obtiene la configuración de sandbox para un provider específico
  */
-export async function getSandboxConfig(provider: SocialProvider): Promise<SocialProviderSandboxConfig> {
-  // 1. Verificar si el modo global sandbox está habilitado
-  const globalSandbox = await getSetting('SANDBOX_MODE');
-  const isGlobalSandbox = globalSandbox === 'true';
+export async function getSandboxConfig(provider: SocialProvider): Promise<ProviderSandboxConfig> {
+  // Leer configuración específica del provider desde app_settings
+  const enabledRaw = await getSetting(`SANDBOX_${provider.toUpperCase()}_ENABLED`);
+  const targetRaw = await getSetting(`SANDBOX_${provider.toUpperCase()}_TARGET`);
 
-  // 2. Verificar configuración específica del provider
-  const providerKey = `SANDBOX_${provider.toUpperCase()}`;
-  const providerSandbox = await getSetting(providerKey);
-  
-  // 3. Verificar target específico (para usuarios de prueba)
-  const targetKey = `SANDBOX_${provider.toUpperCase()}_TARGET`;
-  const sandboxTarget = await getSetting(targetKey);
-
-  // 4. Determinar si está habilitado
-  let enabled = isGlobalSandbox;
-  if (providerSandbox !== undefined && providerSandbox !== null) {
-    enabled = providerSandbox === 'true';
-  }
+  const enabled = enabledRaw === 'true';
+  const target = targetRaw || null;
 
   return {
     enabled,
-    target: sandboxTarget || undefined,
-    testAccountId: sandboxTarget || undefined,
+    target: enabled ? target : null,
   };
 }
 
 /**
- * Obtiene todos los targets de sandbox para todos los providers
+ * Obtiene el estado de sandbox para todos los providers
  */
-export async function getAllSandboxTargets(): Promise<Record<string, string | undefined>> {
-  const targets: Record<string, string | undefined> = {};
+export async function getAllSandboxConfigs(): Promise<Record<string, ProviderSandboxConfig>> {
+  const configs: Record<string, ProviderSandboxConfig> = {};
   
   for (const provider of SOCIAL_PROVIDERS) {
-    const targetKey = `SANDBOX_${provider.toUpperCase()}_TARGET`;
-    const value = await getSetting(targetKey);
-    targets[provider] = value || undefined;
+    configs[provider] = await getSandboxConfig(provider);
   }
   
-  return targets;
+  return configs;
 }
 
 /**
- * Habilita o deshabilita el modo sandbox globalmente
+ * Establece la configuración de sandbox para un provider específico
  */
-export async function setGlobalSandbox(enabled: boolean): Promise<void> {
-  await setSettings({ SANDBOX_MODE: enabled ? 'true' : 'false' });
-}
-
-/**
- * Configura el target de sandbox para un provider específico
- */
-export async function setSandboxTarget(provider: SocialProvider, target: string): Promise<void> {
-  const targetKey = `SANDBOX_${provider.toUpperCase()}_TARGET`;
-  await setSettings({ [targetKey]: target });
-}
-
-/**
- * Habilita el modo sandbox
- */
-export async function enableSandbox(): Promise<void> {
-  await setGlobalSandbox(true);
-}
-
-/**
- * Deshabilita el modo sandbox
- */
-export async function disableSandbox(): Promise<void> {
-  await setGlobalSandbox(false);
-}
-
-/**
- * Resetea todas las configuraciones de sandbox
- */
-export async function resetSandboxConfig(): Promise<void> {
-  await deleteSetting('SANDBOX_MODE');
+export async function setProviderSandboxConfig(
+  provider: SocialProvider,
+  config: { enabled: boolean; target?: string | null }
+): Promise<void> {
+  const settings: Record<string, string> = {};
   
-  for (const provider of SOCIAL_PROVIDERS) {
-    await deleteSetting(`SANDBOX_${provider.toUpperCase()}`);
+  settings[`SANDBOX_${provider.toUpperCase()}_ENABLED`] = config.enabled ? 'true' : 'false';
+  
+  if (config.target) {
+    settings[`SANDBOX_${provider.toUpperCase()}_TARGET`] = config.target;
+  } else {
+    // Eliminar target si no hay uno
     await deleteSetting(`SANDBOX_${provider.toUpperCase()}_TARGET`);
   }
+
+  await setSettings(settings);
+}
+
+/**
+ * Reinicia todas las configuraciones de sandbox
+ */
+export async function resetAllSandboxConfigs(): Promise<void> {
+  const keys: string[] = [];
+  
+  for (const provider of SOCIAL_PROVIDERS) {
+    keys.push(`SANDBOX_${provider.toUpperCase()}_ENABLED`, `SANDBOX_${provider.toUpperCase()}_TARGET`);
+  }
+  
+  for (const key of keys) {
+    await deleteSetting(key);
+  }
+}
+
+/**
+ * Verifica si un provider debe usar sandbox para una URL de autorización
+ */
+export async function shouldUseSandbox(provider: SocialProvider, target?: string): Promise<boolean> {
+  // Si se proporciona un target explícitamente, usar sandbox
+  if (target) return true;
+  
+  // Leer configuración del provider
+  const config = await getSandboxConfig(provider);
+  return config.enabled && !!config.target;
 }
