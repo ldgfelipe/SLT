@@ -101,6 +101,8 @@ export async function buildAuthorizeUrl(input: {
       url.searchParams.set('state', state);
       url.searchParams.set('response_type', 'code');
       url.searchParams.set('scope', scopes.join(','));
+      // Agregar non_sandbox_target para entornos de pruebas
+      url.searchParams.set('non_sandbox_target', 'test_user');
       return url.toString();
     }
 
