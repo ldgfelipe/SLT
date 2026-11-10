@@ -48,6 +48,8 @@ export const SECRET_KEYS: SecretKeyDef[] = [
   // TikTok
   { key: 'TIKTOK_CLIENT_KEY', label: 'TIKTOK_CLIENT_KEY', group: 'tiktok' },
   { key: 'TIKTOK_CLIENT_SECRET', label: 'TIKTOK_CLIENT_SECRET', group: 'tiktok' },
+  { key: 'TIKTOK_SANDBOX_TARGET', label: 'TIKTOK_SANDBOX_TARGET', group: 'tiktok',
+    placeholder: 'User ID de prueba', hint: 'Solo para sandbox/testing. Dejar vacío para producción.' },
 
   // LinkedIn
   { key: 'LINKEDIN_CLIENT_ID', label: 'LINKEDIN_CLIENT_ID', group: 'linkedin' },
