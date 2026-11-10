@@ -1,21 +1,50 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Save, RefreshCw, AlertCircle, Check } from 'lucide-react';
-import { SOCIAL_PROVIDERS, type SocialProvider } from '@/lib/growth/sandbox-config';
+import { Loader2, Save, RefreshCw, AlertCircle, Check, ChevronDown } from 'lucide-react';
+import { SOCIAL_PROVIDERS } from '@/lib/growth/sandbox-config';
 
-interface ProviderConfig {
+interface SocialProviderConfig {
   sandbox: boolean;
-  testKey?: string;
-  testSecret?: string;
+  production: {
+    client_id: string;
+    client_secret: string;
+  };
+  sandbox_keys: {
+    client_id: string;
+    client_secret: string;
+    target_user_id?: string;
+  };
 }
 
 export function SandboxSettings({ clientId }: { clientId?: string }) {
-  const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
+  const [configs, setConfigs] = useState<Record<string, SocialProviderConfig>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+
+  // Claves de producción por provider
+  const PRODUCTION_KEYS: Record<string, [string, string]> = {
+    facebook: ['META_APP_ID', 'META_APP_SECRET'],
+    instagram: ['META_APP_ID', 'META_APP_SECRET'],
+    tiktok: ['TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET'],
+    linkedin: ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET'],
+    x: ['X_CLIENT_ID', 'X_CLIENT_SECRET'],
+    threads: ['THREADS_APP_ID', 'THREADS_APP_SECRET'],
+    youtube: ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
+  };
+
+  const PRODUCTION_LABELS: Record<string, string> = {
+    facebook: 'App ID',
+    instagram: 'App ID',
+    tiktok: 'Client Key',
+    linkedin: 'Client ID',
+    x: 'Client ID',
+    threads: 'App ID',
+    youtube: 'Client ID',
+  };
 
   useEffect(() => {
     loadSettings();
@@ -24,18 +53,34 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const newConfigs: Record<string, ProviderConfig> = {};
+      const newConfigs: Record<string, SocialProviderConfig> = {};
       
       for (const provider of SOCIAL_PROVIDERS) {
+        const [idKey, secretKey] = PRODUCTION_KEYS[provider] || ['', ''];
         const enabledRaw = await getSetting(`SANDBOX_${provider.toUpperCase()}_ENABLED`);
+        const targetRaw = await getSetting(`SANDBOX_${provider.toUpperCase()}_TARGET`);
+        
         newConfigs[provider] = {
           sandbox: enabledRaw === 'true',
-          testKey: '',
-          testSecret: '',
+          production: {
+            client_id: '',
+            client_secret: '',
+          },
+          sandbox_keys: {
+            client_id: '',
+            client_secret: '',
+            target_user_id: targetRaw || undefined,
+          },
         };
       }
       
       setConfigs(newConfigs);
+      
+      // Abrir todos por defecto
+      const newExpanded: Record<string, boolean> = {};
+      SOCIAL_PROVIDERS.forEach(p => newExpanded[p] = true);
+      setExpanded(newExpanded);
+      
     } catch (e) {
       setError('Error cargando configuración');
     } finally {
@@ -54,7 +99,7 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
     }
   };
 
-  const handleToggle = (provider: SocialProvider, checked: boolean) => {
+  const handleToggle = (provider: string, checked: boolean) => {
     setConfigs(prev => ({
       ...prev,
       [provider]: {
@@ -64,22 +109,28 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
     }));
   };
 
-  const handleTestKeyChange = (provider: SocialProvider, value: string) => {
+  const handleProductionChange = (provider: string, field: 'client_id' | 'client_secret', value: string) => {
     setConfigs(prev => ({
       ...prev,
       [provider]: {
         ...prev[provider],
-        testKey: value,
+        production: {
+          ...prev[provider].production,
+          [field]: value,
+        },
       },
     }));
   };
 
-  const handleTestSecretChange = (provider: SocialProvider, value: string) => {
+  const handleSandboxChange = (provider: string, field: 'client_id' | 'client_secret' | 'target_user_id', value: string) => {
     setConfigs(prev => ({
       ...prev,
       [provider]: {
         ...prev[provider],
-        testSecret: value,
+        sandbox_keys: {
+          ...prev[provider].sandbox_keys,
+          [field]: value,
+        },
       },
     }));
   };
@@ -92,12 +143,15 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
     try {
       for (const provider of SOCIAL_PROVIDERS) {
         const config = configs[provider];
+        if (!config) continue;
+        
+        // Guardar toggle de sandbox
         await fetch(`/api/settings/sandbox/${provider}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            enabled: config?.sandbox || false,
-            target: config?.testKey || '',
+            enabled: config.sandbox,
+            target: config.sandbox_keys.target_user_id || '',
           }),
         });
       }
@@ -122,62 +176,127 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-white mb-4">Modo Sandbox</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">Configuración por Red Social</h3>
         <p className="text-xs text-slate-400 mb-6">
-          Activa sandbox para usar cuentas de prueba en lugar de producción
+          Ingresa las claves de producción y/o sandbox para cada red social. 
+          Usa el toggle para alternar entre modo producción y sandbox.
         </p>
         
         <div className="rounded-2xl border border-white/10 bg-[#0c1f3d] p-6">
-          <div className="grid gap-4">
+          <div className="space-y-4">
             {SOCIAL_PROVIDERS.map((provider) => {
-              const config = configs[provider] || { sandbox: false, testKey: '', testSecret: '' };
-              const color = provider === 'tiktok' ? '#00f2ea' : 
-                           provider === 'instagram' ? '#e1306c' : 
-                           provider === 'facebook' ? '#1877f2' : '#888';
+              const config = configs[provider] || {
+                sandbox: false,
+                production: { client_id: '', client_secret: '' },
+                sandbox_keys: { client_id: '', client_secret: '', target_user_id: '' },
+              };
+              const isOpen = expanded[provider];
               
               return (
-                <div key={provider} className="border border-white/10 rounded-xl p-4 bg-[#0a1931]/30">
-                  <div className="flex items-center justify-between mb-3">
+                <div key={provider} className="border border-white/10 rounded-xl bg-[#0a1931]/30">
+                  <button
+                    onClick={() => setExpanded(prev => ({ ...prev, [provider]: !isOpen }))}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition"
+                  >
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                        style={{ backgroundColor: color }}
-                      >
-                        {provider.toUpperCase().charAt(0)}
-                      </div>
                       <span className="text-sm font-medium text-white capitalize">{provider}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-slate-400 mr-4">
                         {config.sandbox ? 'Sandbox' : 'Producción'}
                       </span>
-                      <label className="relative inline-flex h-5 w-9 items-center">
+                      <div className="flex items-center">
                         <input
                           type="checkbox"
                           checked={config.sandbox}
                           onChange={(e) => handleToggle(provider, e.target.checked)}
-                          className="sr-only"
+                          className="h-4 w-4 rounded border-white/20 bg-[#0a1931]"
                         />
-                        <div className={`inline-block h-5 w-5 rounded-full transition-transform ${
-                          config.sandbox ? 'translate-x-5 bg-[#00d4ff]' : 'translate-x-1 bg-slate-600'
-                        }`}></div>
-                      </label>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                     </div>
-                  </div>
+                  </button>
                   
-                  {config.sandbox && (
-                    <div className="ml-13 grid gap-3">
+                  {isOpen && (
+                    <div className="px-4 pb-3 space-y-3">
+                      {/* Producción */}
                       <div>
-                        <label className="text-xs font-semibold uppercase text-slate-400 mb-1 block">
-                          User ID de prueba
-                        </label>
-                        <input
-                          type="text"
-                          value={config.testKey}
-                          onChange={(e) => handleTestKeyChange(provider, e.target.value)}
-                          placeholder={`User ID de prueba para ${provider}`}
-                          className="w-full rounded-lg border border-white/10 bg-[#0a1931] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-[#00d4ff] outline-none"
-                        />
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-[#00d4ff] mb-2">
+                          Producción
+                        </h4>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">
+                              {PRODUCTION_LABELS[provider] || 'Client ID'}
+                            </label>
+                            <input
+                              type="text"
+                              value={config.production.client_id}
+                              onChange={(e) => handleProductionChange(provider, 'client_id', e.target.value)}
+                              placeholder="Client ID"
+                              className="w-full rounded-lg border border-white/10 bg-[#0a1931] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-[#00d4ff] outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">
+                              Client Secret
+                            </label>
+                            <input
+                              type="text"
+                              value={config.production.client_secret}
+                              onChange={(e) => handleProductionChange(provider, 'client_secret', e.target.value)}
+                              placeholder="Client Secret"
+                              className="w-full rounded-lg border border-white/10 bg-[#0a1931] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-[#00d4ff] outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sandbox */}
+                      <div>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-2">
+                          Sandbox/Prueba
+                        </h4>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">
+                              Client ID
+                            </label>
+                            <input
+                              type="text"
+                              value={config.sandbox_keys.client_id}
+                              onChange={(e) => handleSandboxChange(provider, 'client_id', e.target.value)}
+                              placeholder="Client ID Sandbox"
+                              className="w-full rounded-lg border border-white/10 bg-[#0a1931] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-400 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">
+                              Client Secret
+                            </label>
+                            <input
+                              type="text"
+                              value={config.sandbox_keys.client_secret}
+                              onChange={(e) => handleSandboxChange(provider, 'client_secret', e.target.value)}
+                              placeholder="Client Secret Sandbox"
+                              className="w-full rounded-lg border border-white/10 bg-[#0a1931] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-400 outline-none"
+                            />
+                          </div>
+                        </div>
+                        {provider === 'tiktok' && (
+                          <div className="mt-2">
+                            <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">
+                              User ID Prueba
+                            </label>
+                            <input
+                              type="text"
+                              value={config.sandbox_keys.target_user_id || ''}
+                              onChange={(e) => handleSandboxChange(provider, 'target_user_id', e.target.value)}
+                              placeholder="User ID de prueba"
+                              className="w-full rounded-lg border border-white/10 bg-[#0a1931] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-400 outline-none"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -188,7 +307,7 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
         </div>
       </div>
 
-      {/* Mensaje de éxito */}
+      {/* Mensajes */}
       {success && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-200">
           <Check className="h-4 w-4" />
@@ -196,7 +315,6 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
         </div>
       )}
 
-      {/* Mensaje de error */}
       {error && (
         <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-200">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
