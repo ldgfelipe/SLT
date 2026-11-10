@@ -11,15 +11,12 @@ ON posts USING gin (social_account_ids);
 
 -- Actualizar la columna de un solo ID para retrocompatibilidad
 -- Si hay social_account_ids, también actualizar social_account_id con el primero
--- Esto mantiene compatibilidad con código existente
+-- Usar ::text::uuid para cast seguro desde jsonb
 UPDATE posts 
-SET social_account_id = (social_account_ids->0)::uuid
+SET social_account_id = ((social_account_ids->0)::text)::uuid
 WHERE social_account_ids IS NOT NULL 
-  AND (social_account_id IS NULL OR social_account_id = '')
+  AND social_account_id IS NULL
   AND jsonb_array_length(social_account_ids) > 0;
 
 -- Comentario en la columna
 COMMENT ON COLUMN posts.social_account_ids IS 'Array de IDs de cuentas sociales para publicación múltiple (Facebook, Instagram, etc.)';
-
--- RLS policies (si existen, mantener compatibilidad)
--- Las políticas existentes deberían proteger esta columna

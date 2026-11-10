@@ -347,6 +347,7 @@ export interface Post {
   id: string;
   client_id: string;
   social_account_id: string | null;
+  social_account_ids: string[] | null;
   campaign_id: string | null;
   titulo: string;
   descripcion: string | null;
@@ -362,6 +363,7 @@ export interface Post {
   updated_at?: string | null;
   campaign?: Pick<Campaign, 'id' | 'name'> | null;
   social_account?: Pick<SocialAccount, 'id' | 'account_name' | 'provider'> | null;
+  social_accounts?: Pick<SocialAccount, 'id' | 'account_name' | 'provider'>[] | null;
 }
 
 export interface PublishLog {
@@ -388,4 +390,77 @@ export interface PendingOAuthSession {
   provider: SocialProvider;
   accounts: PendingSocialAccount[];
   expires_at: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* AI Content Agent                                                    */
+/* ------------------------------------------------------------------ */
+
+export interface BusinessAnalysis {
+  id: string;
+  client_id: string;
+  business_name: string;
+  category: string | null;
+  description: string | null;
+  target_audience: string | null;
+  competitors: string[] | null;
+  brand_colors: string[] | null;
+  tone: string | null;
+  key_messages: string[];
+  insights: string[];
+  analysis_data: Record<string, any>;
+  created_at: string;
+}
+
+export type ContentPlanStatus = 'draft' | 'ready' | 'published';
+
+export interface ContentPlanPost {
+  date: string;
+  platforms: SocialProvider[];
+  titulo: string;
+  descripcion: string;
+  hashtag: string;
+  hora_sugerida: string;
+  tipo: 'image' | 'text' | 'carousel' | 'video';
+}
+
+export interface ContentPlan {
+  id: string;
+  client_id: string;
+  name: string;
+  duration_weeks: number;
+  platforms: SocialProvider[];
+  posts_per_week: number;
+  plan_data: {
+    plan: {
+      name: string;
+      duration_weeks: number;
+      total_posts: number;
+      posts_per_week: number;
+      platforms: SocialProvider[];
+      posts: ContentPlanPost[];
+    };
+    suggestions: string[];
+  };
+  status: ContentPlanStatus;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export type GeneratedImageType = 'image' | 'carousel' | 'video';
+export type GeneratedImageStatus = 'pending' | 'generating' | 'completed' | 'failed';
+
+export interface GeneratedImage {
+  id: string;
+  client_id: string;
+  plan_id: string | null;
+  prompt: string;
+  image_url: string | null;
+  storage_path: string | null;
+  type: GeneratedImageType;
+  platform: SocialProvider | null;
+  status: GeneratedImageStatus;
+  error: string | null;
+  metadata: Record<string, any>;
+  created_at: string;
 }

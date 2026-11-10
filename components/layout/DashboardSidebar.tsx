@@ -21,6 +21,7 @@ import {
   Upload,
   BadgeCheck,
   Plug,
+  Brain,
 } from 'lucide-react';
 import { ClientSwitcher } from '@/components/layout/ClientSwitcher';
 import { logoutUser } from '@/app/actions/auth';
@@ -78,6 +79,11 @@ export function DashboardSidebar({
       label: 'Calendario Publicador',
       href: '/dashboard/calendar',
       icon: CalendarDays,
+    },
+    {
+      label: 'Agente IA Contenido',
+      href: '/dashboard/ai-agent',
+      icon: Brain,
     },
     {
       label: 'Campañas Ads',
