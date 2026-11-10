@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Save, RefreshCw, AlertCircle, Check, ChevronDown, StatusIcon } from 'lucide-react';
+import { Loader2, Save, RefreshCw, AlertCircle, Check, ChevronDown } from 'lucide-react';
 import { SOCIAL_PROVIDERS } from '@/lib/growth/sandbox-config';
 
 interface SocialProviderConfig {

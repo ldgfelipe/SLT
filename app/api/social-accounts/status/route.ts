@@ -20,5 +20,5 @@ export async function GET(request: NextRequest) {
     .eq('client_id', clientId)
     .in('status', ['active', 'disconnected']);
 
-  return NextResponse.json({ accounts: data || [] });
+  return NextResponse.json({ accounts: accounts || [] });
 }
