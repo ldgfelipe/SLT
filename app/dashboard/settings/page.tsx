@@ -1,20 +1,30 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ShieldCheck, AlertCircle } from 'lucide-react';
+import { ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { getCurrentUser } from '@/app/actions/auth';
 import { SECRET_KEY_KEYS } from '@/lib/app/keys';
 import { getSettingStatuses } from '@/lib/app/settings';
 import { AppSettingsForm } from '@/components/settings/AppSettingsForm';
+import { SandboxSettings } from '@/components/settings/SandboxSettings';
 
-export const instant = false;
+const PROVIDERS = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'threads', 'youtube'];
 
-export default async function SettingsPage() {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) redirect('/login');
-  if (currentUser.role !== 'root') redirect('/dashboard');
+export default function SettingsPage() {
+  const [isClient, setIsClient] = useState(false);
 
-  const statuses = await getSettingStatuses(SECRET_KEY_KEYS);
-  const missing = statuses.filter((status) => status.source === 'missing').length;
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00d4ff]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a1931] p-6 text-slate-100">
@@ -30,9 +40,7 @@ export default async function SettingsPage() {
               </span>
             </div>
             <p className="mt-1 max-w-2xl text-sm text-slate-400">
-              Claves del Growth Hub. Las que no existan en Vercel se guardan
-              cifradas en la tabla interna <code>app_settings</code> y las lee el
-              servidor automáticamente.
+              Claves del Growth Hub. Las que no existan en Vercel se guardan cifradas en la tabla interna <code>app_settings</code> y las lee el servidor automáticamente.
             </p>
           </div>
 
@@ -47,26 +55,11 @@ export default async function SettingsPage() {
           <span>
             El bootstrap de Supabase (<code>NEXT_PUBLIC_SUPABASE_URL</code>,{' '}
             <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> y{' '}
-            <code>SUPABASE_SERVICE_ROLE_KEY</code>) debe permanecer en Vercel: sin
-            él el app no puede conectarse. Las variables{' '}
-            <code>NEXT_PUBLIC_*</code> siempre se inlincan en build y no pueden
-            venir de la BD.{' '}
-            <Link
-              href="/dashboard/social-accounts"
-              className="underline underline-offset-2 hover:text-amber-100"
-            >
-              Ir a Cuentas Sociales →
-            </Link>
+            <code>SUPABASE_SERVICE_ROLE_KEY</code>) debe permanecer en Vercel: sin él el app no puede conectarse.
           </span>
         </div>
 
-        {missing > 0 && (
-          <p className="text-xs text-slate-500">
-            {missing} clave(s) pendientes. Las de Vercel ganan sobre las de la BD.
-          </p>
-        )}
-
-        <AppSettingsForm statuses={statuses} />
+        <SandboxSettings />
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Info
