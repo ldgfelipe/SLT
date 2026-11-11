@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { redirect } from 'next/navigation';
-import { ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 import { getCurrentUser } from '@/app/actions/auth';
 import { SECRET_KEY_KEYS } from '@/lib/app/keys';
 import { getSettingStatuses } from '@/lib/app/settings';
@@ -10,36 +10,45 @@ import { AppSettingsForm } from '@/components/settings/AppSettingsForm';
 import { SocialAccountsStatus } from '@/components/settings/SocialAccountsStatus';
 import type { SettingStatus } from '@/lib/app/settings';
 
-const PROVIDERS = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'threads', 'youtube'];
-
 export default function SettingsPage() {
-  const [isClient, setIsClient] = useState(false);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(0);
   const [statuses, setStatuses] = useState<SettingStatus[]>([]);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
     
     const init = async () => {
-      const currentUser = await getCurrentUser();
-      if (!currentUser) {
-        redirect('/login');
-        return;
+      try {
+        const currentUser = await getCurrentUser();
+        if (!currentUser) {
+          router.push('/login');
+          return;
+        }
+        if (currentUser.role !== 'root') {
+          router.push('/dashboard');
+          return;
+        }
+        
+        const statusData = await getSettingStatuses(SECRET_KEY_KEYS);
+        setStatuses(statusData);
+        const missingCount = statusData.filter((s) => s.source === 'missing').length;
+        setMissing(missingCount);
+      } catch (error) {
+        console.error('Error initializing settings:', error);
+      } finally {
+        setLoading(false);
       }
-      if (currentUser.role !== 'root') {
-        redirect('/dashboard');
-        return;
-      }
-      
-      const statuses = await getSettingStatuses(SECRET_KEY_KEYS);
-      const missingCount = statuses.filter((s) => s.source === 'missing').length;
-      setMissing(missingCount);
-      setLoading(false);
     };
-    
+
     init();
-  }, []);
+  }, [isClient, router]);
 
   if (!isClient || loading) {
     return (
@@ -48,11 +57,6 @@ export default function SettingsPage() {
       </div>
     );
   }
-
-  // Cargar estados de configuración
-  useEffect(() => {
-    getSettingStatuses(SECRET_KEY_KEYS).then(setStatuses);
-  }, []);
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a1931] p-6 text-slate-100">
