@@ -9,7 +9,7 @@ import { SECRET_KEY_KEYS } from '@/lib/app/keys';
 import { getSettingStatuses } from '@/lib/app/settings';
 import { AppSettingsForm } from '@/components/settings/AppSettingsForm';
 
-export const revalidate = 0;
+export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const currentUser = await getCurrentUser();
