@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/app/actions/auth';
 import { SECRET_KEY_KEYS } from '@/lib/app/keys';
 import { getSettingStatuses } from '@/lib/app/settings';
 import { AppSettingsForm } from '@/components/settings/AppSettingsForm';
+import { SandboxSettings } from '@/components/settings/SandboxSettings';
 
 export const instant = true;
 
@@ -50,6 +51,9 @@ export default async function SettingsPage() {
         )}
 
         <AppSettingsForm statuses={statuses} />
+        
+        {/* Estado de Redes Sociales */}
+        <SandboxSettings />
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Info
