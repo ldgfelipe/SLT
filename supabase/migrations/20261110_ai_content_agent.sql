@@ -1,5 +1,5 @@
 -- =====================================================================
--- AI CONTENT AGENT
+-- AI CONTENT AGENT (CORREGIDO)
 -- Agente de IA para análisis de negocio, planes de publicación y
 -- generación de imágenes para redes sociales.
 --
@@ -20,7 +20,7 @@ create table if not exists business_analyses (
   brand_colors text[],
   tone text,
   key_messages text[],
-  analysis_data jsonb not default '{}'::jsonb,
+  analysis_data jsonb default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -38,7 +38,7 @@ create table if not exists content_plans (
   duration_weeks integer not null default 1,
   platforms text[] not null default '{}',
   posts_per_week integer not null default 3,
-  plan_data jsonb not default '{}'::jsonb,
+  plan_data jsonb default '{}'::jsonb,
   status text not null default 'draft',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -61,7 +61,7 @@ create table if not exists generated_images (
   platform text,
   status text not null default 'pending', -- pending, generating, completed, failed
   error text,
-  metadata jsonb not default '{}'::jsonb,
+  metadata jsonb default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -112,8 +112,7 @@ create policy "Service role manages generated images"
   using (true) with check (true);
 
 drop policy if exists "Client users read generated images" on generated_images;
-create policy "Client users read generated images"
-  on generated_images for select to authenticated
+create policy "Client users read generated images" on generated_images for select to authenticated
   using (
     client_id in (
       select u.client_id from users u where u.id = auth.uid()
