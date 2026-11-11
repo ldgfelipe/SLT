@@ -8,9 +8,8 @@ import { getCurrentUser } from '@/app/actions/auth';
 import { SECRET_KEY_KEYS } from '@/lib/app/keys';
 import { getSettingStatuses } from '@/lib/app/settings';
 import { AppSettingsForm } from '@/components/settings/AppSettingsForm';
-import { SandboxSettings } from '@/components/settings/SandboxSettings';
 
-export const instant = true;
+export const revalidate = 0;
 
 export default async function SettingsPage() {
   const currentUser = await getCurrentUser();
@@ -52,8 +51,8 @@ export default async function SettingsPage() {
 
         <AppSettingsForm statuses={statuses} />
         
-        {/* Estado de Redes Sociales */}
-        <SandboxSettings />
+        {/* Estado de Redes Sociales - Server Component wrapper */}
+        <SocialAccountsStatusWrapper />
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Info
@@ -72,6 +71,13 @@ export default async function SettingsPage() {
       </div>
     </div>
   );
+}
+
+// Server Component wrapper que renderiza el componente client
+async function SocialAccountsStatusWrapper() {
+  // Importar dinámicamente el componente client
+  const { SocialAccountsStatus } = await import('@/components/settings/SocialAccountsStatus');
+  return <SocialAccountsStatus />;
 }
 
 function Info({ title, text }: { title: string; text: string }) {
