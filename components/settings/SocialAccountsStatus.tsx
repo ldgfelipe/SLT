@@ -44,10 +44,11 @@ export function SocialAccountsStatus() {
             connected_account: account
           };
         } else if (account) {
+          // Cuenta existe pero no está activa
           return {
             provider,
             state: 'yellow',
-            label: 'Sin conectar',
+            label: `Estado: ${account.status}`,
             connected_account: account
           };
         }
