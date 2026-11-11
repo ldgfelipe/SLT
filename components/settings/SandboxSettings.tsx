@@ -9,7 +9,8 @@ interface SocialAccount {
   provider: string;
   account_name: string;
   status: string;
-  access_token_encrypted?: string;
+  created_at: string;
+  token_expires_at?: string;
 }
 
 interface ProviderStatus {
@@ -19,7 +20,7 @@ interface ProviderStatus {
   connected_account?: SocialAccount;
 }
 
-export function SandboxSettings({ clientId }: { clientId?: string }) {
+export function SandboxSettings() {
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,8 +33,8 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
     setLoading(true);
     setError('');
     try {
-      // Intentar cargar desde API de cuentas sociales
-      const response = await fetch('/api/social-accounts/status');
+      // Usar el endpoint de accounts que ya tiene el clientId desde cookie
+      const response = await fetch('/api/accounts');
       const data = await response.json();
       const accounts: SocialAccount[] = data?.accounts || [];
       
@@ -53,7 +54,7 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
           return {
             provider,
             state: 'yellow',
-            label: 'Sin conectar',
+            label: 'Conectada (sin access)',
             connected_account: account
           };
         }
@@ -98,7 +99,7 @@ export function SandboxSettings({ clientId }: { clientId?: string }) {
           border: 'border-amber-500/40',
           text: 'text-amber-400',
           icon: '⚠️',
-          label: 'Sin conectar'
+          label: 'Conectada (problema)'
         };
       case 'red':
       default:
