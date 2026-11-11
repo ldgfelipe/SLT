@@ -1,30 +1,23 @@
-'use client';
-
-import { useState, useEffect } from 'react';
 import { redirect } from 'next/navigation';
-import { ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import {
+  ShieldCheck,
+  AlertCircle,
+} from 'lucide-react';
 import { getCurrentUser } from '@/app/actions/auth';
 import { SECRET_KEY_KEYS } from '@/lib/app/keys';
 import { getSettingStatuses } from '@/lib/app/settings';
 import { AppSettingsForm } from '@/components/settings/AppSettingsForm';
-import { SandboxSettings } from '@/components/settings/SandboxSettings';
 
-const PROVIDERS = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'threads', 'youtube'];
+export const instant = true;
 
-export default function SettingsPage() {
-  const [isClient, setIsClient] = useState(false);
+export default async function SettingsPage() {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) redirect('/login');
+  if (currentUser.role !== 'root') redirect('/dashboard');
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00d4ff]"></div>
-      </div>
-    );
-  }
+  const statuses = await getSettingStatuses(SECRET_KEY_KEYS);
+  const missing = statuses.filter((status) => status.source === 'missing').length;
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a1931] p-6 text-slate-100">
@@ -50,16 +43,13 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
-          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          <span>
-            El bootstrap de Supabase (<code>NEXT_PUBLIC_SUPABASE_URL</code>,{' '}
-            <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> y{' '}
-            <code>SUPABASE_SERVICE_ROLE_KEY</code>) debe permanecer en Vercel: sin él el app no puede conectarse.
-          </span>
-        </div>
+        {missing > 0 && (
+          <p className="text-xs text-slate-500">
+            {missing} clave(s) pendientes. Las de Vercel ganan sobre las de la BD.
+          </p>
+        )}
 
-        <SandboxSettings />
+        <AppSettingsForm statuses={statuses} />
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Info
