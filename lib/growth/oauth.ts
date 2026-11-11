@@ -102,10 +102,21 @@ export async function buildAuthorizeUrl(input: {
       url.searchParams.set('response_type', 'code');
       url.searchParams.set('scope', scopes.join(','));
       
-      // Verificar sandbox config desde environment o settings
-      const sandboxTarget = process.env.TIKTOK_SANDBOX_TARGET || '';
-      if (sandboxTarget) {
-        url.searchParams.set('non_sandbox_target', sandboxTarget);
+      // Para TikTok, siempre requerimos saber si es producción o sandbox
+      // Si el client_key tiene prefijo "sandbox" o si está configurado de forma específica
+      const isSandboxClient = credentials.clientId.includes('sandbox') || 
+                             credentials.clientId.toLowerCase().includes('test') ||
+                             process.env.TIKTOK_SANDBOX_TARGET !== undefined;
+      
+      // Solo añadir non_sandbox_target si tenemos un valor configurado
+      // Esto indica que estamos usando sandbox y necesitamos apuntar a un usuario específico
+      if (process.env.TIKTOK_SANDBOX_TARGET) {
+        url.searchParams.set('non_sandbox_target', process.env.TIKTOK_SANDBOX_TARGET);
+      } else if (!isSandboxClient && process.env.NODE_ENV === 'production') {
+        // En producción sin sandbox target, usamos el flujo estándar
+        // TikTok requiere que indiquemos explícitamente si es sandbox o no
+        // Si no tenemos sandbox target, asumir producción
+        // No añadir non_sandbox_target para producción
       }
       
       return url.toString();
