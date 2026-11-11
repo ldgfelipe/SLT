@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Brain, Calendar, Image as ImageIcon, BarChart3, Save, RefreshCw } from 'lucide-react';
 import type { SocialProvider } from '@/types/database';
 import { PROVIDERS, SOCIAL_PROVIDERS } from '@/lib/growth/providers';
@@ -39,6 +39,7 @@ interface PlanForm {
 export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('analyze');
   const [saving, setSaving] = useState(false);
+  const [savedAnalysis, setSavedAnalysis] = useState<any>(null);
   const [businessForm, setBusinessForm] = useState<BusinessForm>({
     business_name: '',
     category: '',
@@ -66,7 +67,25 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageType, setImageType] = useState<'image' | 'carousel' | 'video'>('image');
 
+  // Sincronizar planForm con el análisis guardado
+  useEffect(() => {
+    if (savedAnalysis) {
+      setPlanForm(prev => ({
+        ...prev,
+        business_name: savedAnalysis.business_name || prev.business_name,
+        category: savedAnalysis.category || prev.category,
+        description: savedAnalysis.description || prev.description,
+        target_audience: savedAnalysis.target_audience || prev.target_audience,
+        competitors: savedAnalysis.competitors || prev.competitors,
+        brand_colors: savedAnalysis.brand_colors || prev.brand_colors,
+        tone: savedAnalysis.tone || prev.tone
+      }));
+    }
+  }, [savedAnalysis]);
+
   const handleBusinessSubmit = async () => {
+    if (!businessForm.business_name) return;
+    
     setSaving(true);
     try {
       const response = await fetch('/api/ai-agent', {
@@ -85,6 +104,7 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
       });
       const data = await response.json();
       if (response.ok) {
+        setSavedAnalysis(data.analysis);
         setActiveTab('plans');
       } else {
         alert(data.error || 'Error al analizar el negocio');
