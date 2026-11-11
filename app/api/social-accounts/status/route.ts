@@ -16,9 +16,15 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabaseAdmin();
   const { data: accounts } = await supabase
     .from('social_accounts')
-    .select('provider, status, access_token_encrypted')
-    .eq('client_id', clientId)
-    .in('status', ['active', 'disconnected']);
+    .select('id, provider, account_name, status, created_at, token_expires_at')
+    .eq('client_id', clientId);
 
-  return NextResponse.json({ accounts: accounts || [] });
+  return NextResponse.json({ accounts: (accounts || []).map(a => ({
+    id: a.id,
+    provider: a.provider,
+    account_name: a.account_name,
+    status: a.status,
+    created_at: a.created_at,
+    token_expires_at: a.token_expires_at,
+  })) });
 }
