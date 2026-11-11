@@ -1,8 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import {
-  publishToAccount,
-  type PublishOutcome,
-} from './publish';
+import { publishToAccount, type PublishOutcome } from './publish';
 import type { Post, SocialAccount } from '@/types/database';
 
 export interface SocialAccountWithSecret extends SocialAccount {
@@ -12,11 +9,28 @@ export interface SocialAccountWithSecret extends SocialAccount {
 
 export interface PublishRunResult {
   postId: string;
-  status: 'published' | 'failed';
+  status: 'published' | 'failed' | 'scheduled';
   providers: PublishOutcome[];
   externalPostIds: Record<string, string>;
 }
 
+/**
+ * Determina el estado final después de intentar publicar
+ * - Si es programación: se mantiene programado hasta la fecha
+ * - Si es inmediato: publicado ahora
+ */
+function determineFinalStatus(post: Post, wasScheduled: boolean, anyOk: boolean): 'published' | 'failed' | 'scheduled' {
+  if (wasScheduled) {
+    // Si era programación, mantener estado 'scheduled' 
+    // (el published_at se establecerá cuando se ejecute la programación)
+    return 'scheduled';
+  }
+  return anyOk ? 'published' : 'failed';
+}
+
+/**
+ * Obtiene las cuentas objetivo para publicar
+ */
 async function resolveTargets(post: Post): Promise<SocialAccountWithSecret[]> {
   const supabase = getSupabaseAdmin();
   const targets: SocialAccountWithSecret[] = [];
@@ -79,6 +93,7 @@ export async function runPostPublish(post: Post): Promise<PublishRunResult> {
 
   const attempt = Number(post.attempts || 0) + 1;
   const outcomes: PublishOutcome[] = [];
+  const wasScheduled = Boolean(post.scheduled_at);
 
   for (const account of targets) {
     let outcome: PublishOutcome;
@@ -123,6 +138,7 @@ export async function runPostPublish(post: Post): Promise<PublishRunResult> {
 
   const anyOk = outcomes.some((outcome) => outcome.ok);
   const failures = outcomes.filter((outcome) => !outcome.ok);
+
   const warnings = outcomes
     .map((outcome) => outcome.warning)
     .filter((value): value is string => Boolean(value));
@@ -134,17 +150,20 @@ export async function runPostPublish(post: Post): Promise<PublishRunResult> {
           .join(' | ')
       : warnings.join(' | ') || null;
 
-  const status: 'published' | 'failed' = anyOk ? 'published' : 'failed';
+  // Determinar estado final
+  const finalStatus = determineFinalStatus(post, wasScheduled, anyOk);
+
   const now = new Date().toISOString();
 
   const { error } = await supabase
     .from('posts')
     .update({
-      status,
+      status: finalStatus,
       external_post_ids: externalPostIds,
       error_log: errorLog,
       attempts: attempt,
-      published_at: anyOk ? now : post.published_at,
+      // Si era programación, no actualicemos published_at todavía
+      // published_at: anyOk ? now : post.published_at,
       updated_at: now,
     })
     .eq('id', post.id);
@@ -155,7 +174,7 @@ export async function runPostPublish(post: Post): Promise<PublishRunResult> {
 
   return {
     postId: post.id,
-    status,
+    status: finalStatus,
     providers: outcomes,
     externalPostIds,
   };
