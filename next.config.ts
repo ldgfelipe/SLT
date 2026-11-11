@@ -2,10 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  cacheComponents: true,
   partialPrefetching: true,
   experimental: {
     agentUpgrade: "security",
+    // Disable component caching for dynamic routes
+    cacheComponents: false,
   },
   turbopack: {
     rules: {
