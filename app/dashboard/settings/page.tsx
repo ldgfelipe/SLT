@@ -1,23 +1,58 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import {
-  ShieldCheck,
-  AlertCircle,
-} from 'lucide-react';
+import { ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { getCurrentUser } from '@/app/actions/auth';
 import { SECRET_KEY_KEYS } from '@/lib/app/keys';
 import { getSettingStatuses } from '@/lib/app/settings';
 import { AppSettingsForm } from '@/components/settings/AppSettingsForm';
+import { SocialAccountsStatus } from '@/components/settings/SocialAccountsStatus';
+import type { SettingStatus } from '@/lib/app/settings';
 
-export const dynamic = 'force-dynamic';
+const PROVIDERS = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'threads', 'youtube'];
 
-export default async function SettingsPage() {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) redirect('/login');
-  if (currentUser.role !== 'root') redirect('/dashboard');
+export default function SettingsPage() {
+  const [isClient, setIsClient] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(0);
+  const [statuses, setStatuses] = useState<SettingStatus[]>([]);
 
-  const statuses = await getSettingStatuses(SECRET_KEY_KEYS);
-  const missing = statuses.filter((status) => status.source === 'missing').length;
+  useEffect(() => {
+    setIsClient(true);
+    
+    const init = async () => {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        redirect('/login');
+        return;
+      }
+      if (currentUser.role !== 'root') {
+        redirect('/dashboard');
+        return;
+      }
+      
+      const statuses = await getSettingStatuses(SECRET_KEY_KEYS);
+      const missingCount = statuses.filter((s) => s.source === 'missing').length;
+      setMissing(missingCount);
+      setLoading(false);
+    };
+    
+    init();
+  }, []);
+
+  if (!isClient || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0a1931]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#00d4ff]" />
+      </div>
+    );
+  }
+
+  // Cargar estados de configuración
+  useEffect(() => {
+    getSettingStatuses(SECRET_KEY_KEYS).then(setStatuses);
+  }, []);
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a1931] p-6 text-slate-100">
@@ -51,8 +86,8 @@ export default async function SettingsPage() {
 
         <AppSettingsForm statuses={statuses} />
         
-        {/* Estado de Redes Sociales - Server Component wrapper */}
-        <SocialAccountsStatusWrapper />
+        {/* Estado de Redes Sociales */}
+        <SocialAccountsStatus />
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Info
@@ -71,13 +106,6 @@ export default async function SettingsPage() {
       </div>
     </div>
   );
-}
-
-// Server Component wrapper que renderiza el componente client
-async function SocialAccountsStatusWrapper() {
-  // Importar dinámicamente el componente client
-  const { SocialAccountsStatus } = await import('@/components/settings/SocialAccountsStatus');
-  return <SocialAccountsStatus />;
 }
 
 function Info({ title, text }: { title: string; text: string }) {
