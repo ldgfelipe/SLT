@@ -201,27 +201,42 @@ function SidebarContent({
 
       {/* User Info & Logout */}
       <div className="p-1.5 border-t border-slate-800/50">
-        <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-slate-800/40 mb-1">
-          <div className="h-6 w-6 rounded-full bg-cyan-500 text-white flex items-center justify-center font-bold text-[10px]">
-            {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
+        {/* Usuario - apilado vertical en colapsado, horizontal en expandido */}
+        <div className="flex flex-col gap-1 mb-2">
+          <div className={`flex items-center gap-2 p-1.5 rounded-lg bg-slate-800/40 ${
+            collapsed ? 'justify-center' : 'justify-between'
+          }`}>
+            <div className="h-6 w-6 rounded-full bg-cyan-500 text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+              {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
+            </div>
+            {!collapsed && (
+              <span className="text-[10px] font-medium text-slate-100 truncate flex-1">
+                {currentUser?.name || 'Admin'}
+              </span>
+            )}
           </div>
-          {!collapsed && (
-            <span className="text-[10px] font-medium text-slate-100 truncate flex-1">
-              {currentUser?.name || 'Admin'}
-            </span>
-          )}
-          <form action={logoutUser}>
-            <button
-              type="submit"
-              title="Cerrar Sesión"
-              className="p-0.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </button>
-          </form>
+          
+          <div className={`flex items-center gap-2 ${
+            collapsed ? 'justify-center' : 'justify-between'
+          }`}>
+            {!collapsed && (
+              <span className="text-[10px] text-slate-300">
+                {isRoot ? 'SuperAdmin' : 'Cliente'}
+              </span>
+            )}
+            <form action={logoutUser}>
+              <button
+                type="submit"
+                title="Cerrar Sesión"
+                className="rounded-lg p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition text-xs"
+              >
+                Cerrar
+              </button>
+            </form>
+          </div>
         </div>
 
-        {/* Enlaces en columna */}
+        {/* Enlaces de privacidad */}
         <div className="flex flex-col gap-0.5 text-[10px] text-slate-500">
           <a href="/app/docs/privacy-policy" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition">
             Política de privacidad
