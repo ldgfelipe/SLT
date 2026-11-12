@@ -25,7 +25,6 @@ import {
   Menu,
   X,
 } from 'lucide-react';
-import { ClientSwitcher } from '@/components/layout/ClientSwitcher';
 import { logoutUser } from '@/app/actions/auth';
 import { Client, AppUser } from '@/types/database';
 
@@ -47,90 +46,22 @@ export function DashboardSidebar({
   const isRoot = currentUser?.role === 'root';
 
   const navItems = [
-    {
-      label: 'Pipelines',
-      href: '/dashboard',
-      icon: LayoutDashboard,
-      exact: true,
-    },
-    {
-      label: 'Clientes',
-      href: '/dashboard/clients',
-      icon: Building2,
-      hidden: !isRoot,
-    },
-    {
-      label: 'Contactos',
-      href: '/dashboard/contacts',
-      icon: Users,
-    },
-    {
-      label: 'Formularios',
-      href: '/dashboard/forms',
-      icon: FileText,
-    },
-    {
-      label: 'Tracking',
-      href: '/dashboard/tracking',
-      icon: Activity,
-    },
-    {
-      label: 'Social',
-      href: '/dashboard/social-accounts',
-      icon: Share2,
-    },
-    {
-      label: 'Calendario',
-      href: '/dashboard/calendar',
-      icon: CalendarDays,
-    },
-    {
-      label: 'IA Contenido',
-      href: '/dashboard/ai-agent',
-      icon: Brain,
-    },
-    {
-      label: 'Ads',
-      href: '/dashboard/campaigns',
-      icon: Megaphone,
-    },
-    {
-      label: 'Mail',
-      href: '/dashboard/mail-center/campanas',
-      icon: Mail,
-    },
-    {
-      label: 'Listas',
-      href: '/dashboard/mail-center/listas',
-      icon: ListChecks,
-    },
-    {
-      label: 'Importar',
-      href: '/dashboard/mail-center/importar',
-      icon: Upload,
-    },
-    {
-      label: 'Validar',
-      href: '/dashboard/mail-center/validacion',
-      icon: BadgeCheck,
-    },
-    {
-      label: 'Integraciones',
-      href: '/dashboard/mail-center/integraciones',
-      icon: Plug,
-    },
-    {
-      label: 'Usuarios',
-      href: '/dashboard/users',
-      icon: ShieldAlert,
-      hidden: !isRoot,
-    },
-    {
-      label: 'Ajustes',
-      href: '/dashboard/settings',
-      icon: Settings,
-      hidden: !isRoot,
-    },
+    { label: 'Pipelines', href: '/dashboard', icon: LayoutDashboard, exact: true },
+    { label: 'Clientes', href: '/dashboard/clients', icon: Building2, hidden: !isRoot },
+    { label: 'Contactos', href: '/dashboard/contacts', icon: Users },
+    { label: 'Formularios', href: '/dashboard/forms', icon: FileText },
+    { label: 'Tracking', href: '/dashboard/tracking', icon: Activity },
+    { label: 'Social', href: '/dashboard/social-accounts', icon: Share2 },
+    { label: 'Calendario', href: '/dashboard/calendar', icon: CalendarDays },
+    { label: 'IA Contenido', href: '/dashboard/ai-agent', icon: Brain },
+    { label: 'Ads', href: '/dashboard/campaigns', icon: Megaphone },
+    { label: 'Mail', href: '/dashboard/mail-center/campanas', icon: Mail },
+    { label: 'Listas', href: '/dashboard/mail-center/listas', icon: ListChecks },
+    { label: 'Importar', href: '/dashboard/mail-center/importar', icon: Upload },
+    { label: 'Validar', href: '/dashboard/mail-center/validacion', icon: BadgeCheck },
+    { label: 'Integraciones', href: '/dashboard/mail-center/integraciones', icon: Plug },
+    { label: 'Usuarios', href: '/dashboard/users', icon: ShieldAlert, hidden: !isRoot },
+    { label: 'Ajustes', href: '/dashboard/settings', icon: Settings, hidden: !isRoot },
   ];
 
   const visibleItems = navItems.filter((item) => !item.hidden);
@@ -154,16 +85,16 @@ export function DashboardSidebar({
         </button>
       </div>
 
-      {/* Overlay para móvil */}
+      {/* Overlay móvil */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[99] transition"
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[99] transition-all"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
-      {/* Sidebar desktop */}
-      <aside className="hidden lg:flex flex-col h-screen bg-slate-900/95 border-r border-slate-800/50">
+      {/* Sidebar desktop - con transición de ancho */}
+      <aside className="hidden lg:flex bg-slate-900/95 border-r border-slate-800/50 h-screen">
         <SidebarContent
           clients={clients}
           activeClientId={activeClientId}
@@ -184,8 +115,8 @@ export function DashboardSidebar({
             clients={clients}
             activeClientId={activeClientId}
             currentUser={currentUser}
-            collapsed={collapsed}
-            setCollapsed={setCollapsed}
+            collapsed={false}
+            setCollapsed={() => {}}
             isRoot={isRoot}
             pathname={pathname}
             isActive={isActive}
@@ -224,25 +155,22 @@ function SidebarContent({
   mobile = false,
 }: SidebarContentProps) {
   return (
-    <>
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className={`p-3 border-b border-slate-800/50 ${collapsed ? 'items-center justify-center' : ''}`}>
+      <div className={`p-3 border-b border-slate-800/50 flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
         <Link href="/dashboard" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-cyan-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
             S
           </div>
           {!collapsed && (
-            <div>
-              <span className="font-bold text-base text-white">SLT</span>
-              <span className="text-xs text-slate-400 block -mt-0.5">Lead Tracker</span>
-            </div>
+            <span className="font-bold text-base text-white">SLT</span>
           )}
         </Link>
 
         {!mobile && (
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="ml-auto rounded-xl p-1.5 text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 transition"
+            className="rounded-xl p-1.5 text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 transition"
             aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
           >
             <Settings className="h-4 w-4" />
@@ -266,7 +194,7 @@ function SidebarContent({
               }`}
             >
               <Icon className={`w-4 h-4 shrink-0 ${isActive(item.href) ? 'text-cyan-400' : 'text-slate-400'}`} />
-              <span className="truncate">{item.label}</span>
+              {!collapsed && <span className="truncate flex-1">{item.label}</span>}
             </Link>
           );
         })}
@@ -279,12 +207,9 @@ function SidebarContent({
             {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
           </div>
           {!collapsed && (
-            <div className="truncate">
-              <span className="text-xs font-medium text-slate-100 block">{currentUser?.name || 'Admin'}</span>
-              <span className="text-[10px] text-slate-500 block -mt-0.5">
-                {isRoot ? 'SuperAdmin' : 'Cliente'}
-              </span>
-            </div>
+            <span className="text-xs font-medium text-slate-100 truncate flex-1">
+              {currentUser?.name || 'Admin'}
+            </span>
           )}
           <form action={logoutUser} className="ml-auto">
             <button
@@ -297,25 +222,15 @@ function SidebarContent({
           </form>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-500 justify-center">
-          <a
-            href="/app/docs/privacy-policy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-cyan-400 transition"
-          >
+        <div className="flex items-center justify-center gap-6 text-xs text-slate-500">
+          <a href="/app/docs/privacy-policy" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition">
             Privacidad
           </a>
-          <a
-            href="/app/docs/data-deletion"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-cyan-400 transition"
-          >
+          <a href="/app/docs/data-deletion" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition">
             Borrar datos
           </a>
         </div>
       </div>
-    </>
+    </div>
   );
 }
