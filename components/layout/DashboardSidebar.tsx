@@ -73,24 +73,41 @@ export function DashboardSidebar({
 
   return (
     <>
-      {/* Botón móvil */}
-      <div className="lg:hidden fixed top-4 left-4 z-[100] p-2">
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-xl p-2 text-slate-200 hover:text-cyan-400 hover:bg-slate-800/50 transition bg-slate-900/70"
-          aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
-        >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
-      </div>
-
-      {/* Overlay móvil */}
+      {/* Overlay móvil - SIEMPRE EN PRIMER PLANO PARA capturar clicks */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[99] transition-all"
+          key="mobil-overlay"
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-[99] transition-all"
           onClick={() => setMobileOpen(false)}
         />
       )}
+
+      {/* Sidebar móvil */}
+      {mobileOpen && (
+        <aside key="mobile-sidebar" className="fixed inset-y-0 left-0 z-[100] w-64 bg-slate-900/95 border-r border-slate-800/50 shadow-2xl">
+          <SidebarContent
+            clients={clients}
+            activeClientId={activeClientId}
+            currentUser={currentUser}
+            collapsed={false}
+            setCollapsed={() => {}}
+            isRoot={isRoot}
+            pathname={pathname}
+            isActive={isActive}
+            visibleItems={visibleItems}
+            mobile
+          />
+        </aside>
+      )}
+
+      {/* Botón móvil - SIEMPRE VISIBLE Y EN EL FRONTAL */}
+      <button
+        onClick={() => setMobileOpen(!mobileOpen)}
+        className="fixed top-4 left-4 z-[101] p-2 rounded-xl text-slate-200 hover:text-cyan-400 hover:bg-slate-800/50 transition bg-slate-900/70 lg:hidden"
+        aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+      >
+        {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      </button>
 
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex bg-slate-900/95 border-r border-slate-800/50 h-screen">
@@ -106,24 +123,6 @@ export function DashboardSidebar({
           visibleItems={visibleItems}
         />
       </aside>
-
-      {/* Sidebar móvil */}
-      {mobileOpen && (
-        <aside className="lg:hidden fixed inset-y-0 left-0 z-[100] w-64 bg-slate-900/95 border-r border-slate-800/50 shadow-2xl">
-          <SidebarContent
-            clients={clients}
-            activeClientId={activeClientId}
-            currentUser={currentUser}
-            collapsed={false}
-            setCollapsed={() => {}}
-            isRoot={isRoot}
-            pathname={pathname}
-            isActive={isActive}
-            visibleItems={visibleItems}
-            mobile
-          />
-        </aside>
-      )}
     </>
   );
 }
@@ -201,7 +200,6 @@ function SidebarContent({
 
       {/* User Info & Logout */}
       <div className="p-1.5 border-t border-slate-800/50">
-        {/* Usuario - apilado vertical en colapsado, horizontal en expandido */}
         <div className="flex flex-col gap-1 mb-2">
           <div className={`flex items-center gap-2 p-1.5 rounded-lg bg-slate-800/40 ${
             collapsed ? 'justify-center' : 'justify-between'
@@ -236,7 +234,6 @@ function SidebarContent({
           </div>
         </div>
 
-        {/* Enlaces de privacidad */}
         <div className="flex flex-col gap-0.5 text-[10px] text-slate-500">
           <a href="/app/docs/privacy-policy" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition">
             Política de privacidad
