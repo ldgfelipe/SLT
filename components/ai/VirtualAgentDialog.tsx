@@ -179,7 +179,7 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
       const data = await response.json();
       if (response.ok) {
         setGeneratedPlan(data.plan);
-        const schedulePosts(data.plan);
+        schedulePosts(data.plan);
         setActiveTab('images');
       } else {
         alert(data.error || 'Error al generar el plan');
