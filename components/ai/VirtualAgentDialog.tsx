@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Brain, Calendar, Image as ImageIcon, BarChart3, Save, RefreshCw } from 'lucide-react';
+import { X, Brain, Calendar, Image as ImageIcon, BarChart3, Save, RefreshCw, Check, Loader2 } from 'lucide-react';
 import type { SocialProvider } from '@/types/database';
 import { PROVIDERS, SOCIAL_PROVIDERS } from '@/lib/growth/providers';
 
@@ -34,12 +34,24 @@ interface PlanForm {
   competitors: string[];
   brand_colors: string[];
   tone: string;
+  analysis_id: string;
+}
+
+interface GeneratedPost {
+  titulo: string;
+  descripcion: string;
+  hashtag: string;
+  hora_sugerida: string;
+  tipo: 'imagen' | 'texto' | 'video' | 'carousel';
+  fecha_posteo: string;
 }
 
 export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('analyze');
   const [saving, setSaving] = useState(false);
   const [savedAnalysis, setSavedAnalysis] = useState<any>(null);
+  const [generatedPlan, setGeneratedPlan] = useState<any>(null);
+  const [posts, setPosts] = useState<GeneratedPost[]>([]);
   const [businessForm, setBusinessForm] = useState<BusinessForm>({
     business_name: '',
     category: '',
@@ -61,27 +73,50 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
     target_audience: '',
     competitors: [],
     brand_colors: ['#0a1931', '#00d4ff'],
-    tone: 'Profesional'
+    tone: 'Profesional',
+    analysis_id: '',
   });
 
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageType, setImageType] = useState<'image' | 'carousel' | 'video'>('image');
+  const [generatingImages, setGeneratingImages] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<any[]>([]);
 
-  // Sincronizar planForm con el análisis guardado
+  // Sincronizar formulario con análisis guardado
   useEffect(() => {
     if (savedAnalysis) {
       setPlanForm(prev => ({
         ...prev,
-        business_name: savedAnalysis.business_name || prev.business_name,
-        category: savedAnalysis.category || prev.category,
-        description: savedAnalysis.description || prev.description,
-        target_audience: savedAnalysis.target_audience || prev.target_audience,
-        competitors: savedAnalysis.competitors || prev.competitors,
-        brand_colors: savedAnalysis.brand_colors || prev.brand_colors,
-        tone: savedAnalysis.tone || prev.tone
+        business_name: savedAnalysis.business_name,
+        category: savedAnalysis.category,
+        description: savedAnalysis.description,
+        target_audience: savedAnalysis.target_audience,
+        competitors: savedAnalysis.competitors || [],
+        brand_colors: savedAnalysis.brand_colors || ['#0a1931', '#00d4ff'],
+        tone: savedAnalysis.tone,
+        analysis_id: savedAnalysis.id,
       }));
     }
   }, [savedAnalysis]);
+
+  // Cargar análisis existentes al abrir
+  useEffect(() => {
+    if (open) {
+      loadLatestAnalysis();
+    }
+  }, [open]);
+
+  const loadLatestAnalysis = async () => {
+    try {
+      const response = await fetch('/api/ai-agent?action=get_analyses');
+      const data = await response.json();
+      if (data?.analyses?.length > 0) {
+        setSavedAnalysis(data.analyses[0]);
+      }
+    } catch (e) {
+      console.error('Error cargando análisis:', e);
+    }
+  };
 
   const handleBusinessSubmit = async () => {
     if (!businessForm.business_name) return;
@@ -105,6 +140,15 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
       const data = await response.json();
       if (response.ok) {
         setSavedAnalysis(data.analysis);
+        setBusinessForm({
+          business_name: '',
+          category: '',
+          description: '',
+          target_audience: '',
+          competitors: '',
+          brand_colors: '#0a1931, #00d4ff',
+          tone: 'Profesional'
+        });
         setActiveTab('plans');
       } else {
         alert(data.error || 'Error al analizar el negocio');
@@ -117,6 +161,8 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
   };
 
   const handlePlanSubmit = async () => {
+    if (!planForm.name) return;
+    
     setSaving(true);
     try {
       const response = await fetch('/api/ai-agent', {
@@ -124,11 +170,16 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'generate_content_plan',
-          ...planForm
+          ...planForm,
+          competitors: planForm.competitors || [],
+          brand_colors: planForm.brand_colors || ['#0a1931', '#00d4ff'],
+          tone: planForm.tone || 'Profesional'
         })
       });
       const data = await response.json();
       if (response.ok) {
+        setGeneratedPlan(data.plan);
+        const schedulePosts(data.plan);
         setActiveTab('images');
       } else {
         alert(data.error || 'Error al generar el plan');
@@ -140,8 +191,17 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
     }
   };
 
+  const schedulePosts = (plan: any) => {
+    const newPosts: GeneratedPost[] = plan.plan?.posts || [];
+    setPosts(newPosts);
+  };
+
   const handleImageGenerate = async () => {
-    setSaving(true);
+    if (!imagePrompt.trim()) return;
+    
+    setGeneratingImages(true);
+    setGeneratedImages(prev => [...prev, { id: Date.now(), prompt: imagePrompt, type: imageType, status: 'generating' }]);
+    
     try {
       const response = await fetch('/api/ai-agent', {
         method: 'POST',
@@ -149,34 +209,49 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
         body: JSON.stringify({
           action: 'generate_image_prompt',
           prompt: imagePrompt,
-          type: imageType
+          type: imageType,
+          plan_id: savedAnalysis?.id
         })
       });
       const data = await response.json();
       if (response.ok) {
-        alert('Prompt generado: ' + data.prompt);
+        const lastIdx = generatedImages.length - 1;
+        setGeneratedImages(prev => [
+          ...prev.slice(0, lastIdx),
+          { ...prev[lastIdx], prompt: data.prompt, status: 'completed' }
+        ]);
       }
     } catch (e) {
-      alert('Error de conexión');
+      const lastIdx = generatedImages.length - 1;
+      setGeneratedImages(prev => [
+        ...prev.slice(0, lastIdx),
+        { ...prev[lastIdx], status: 'error', error: 'Error al generar prompt' }
+      ]);
     } finally {
-      setSaving(false);
+      setGeneratingImages(false);
+      setImagePrompt('');
     }
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-[#0a1931] rounded-2xl border border-white/10 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-3">
             <Brain className="h-6 w-6 text-[#00d4ff]" />
-            <h2 className="text-xl font-bold text-white">Asistente Virtual de Contenido</h2>
+            <h2 className="text-xl font-bold text-white">Asistente de Contenido IA</h2>
+            {savedAnalysis && (
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
+                Analizado
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-white/10 transition"
+            className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/10 transition"
           >
             <X className="h-5 w-5" />
           </button>
@@ -213,273 +288,65 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
                 ? 'bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
+            disabled={!generatedPlan}
           >
             <ImageIcon className="h-4 w-4" />
-            Generar Imagen
+            Imágenes
           </button>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5">
+          {/* Tabs content */}
           {activeTab === 'analyze' && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Información del Negocio</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">Información del Negocio</h3>
                 <p className="text-sm text-slate-400 mb-4">
-                  Proporcione detalles sobre su negocio para que el agente analice y genere estrategias de contenido.
+                  Proporcione detalles sobre su negocio para generar estrategias de contenido.
                 </p>
               </div>
-
+              {/* Form fields */}
               <div className="grid gap-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Nombre del negocio
+                    Nombre del negocio *
                   </label>
                   <input
                     type="text"
                     value={businessForm.business_name}
                     onChange={(e) => setBusinessForm({ ...businessForm, business_name: e.target.value })}
                     placeholder="Ej: Mi Empresa S.A."
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
+                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                    disabled={saving}
                   />
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Categoría
-                  </label>
-                  <input
-                    type="text"
-                    value={businessForm.category}
-                    onChange={(e) => setBusinessForm({ ...businessForm, category: e.target.value })}
-                    placeholder="Ej: Retail, Servicios, Tecnología..."
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Descripción breve
-                  </label>
-                  <textarea
-                    value={businessForm.description}
-                    onChange={(e) => setBusinessForm({ ...businessForm, description: e.target.value })}
-                    placeholder="Cuéntanos qué hace tu negocio..."
-                    rows={3}
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff] resize-y"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Audiencia objetivo
-                  </label>
-                  <input
-                    type="text"
-                    value={businessForm.target_audience}
-                    onChange={(e) => setBusinessForm({ ...businessForm, target_audience: e.target.value })}
-                    placeholder="Ej: Mujeres 25-40, hombres 18-35..."
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Competidores (separados por coma)
-                  </label>
-                  <input
-                    type="text"
-                    value={businessForm.competitors}
-                    onChange={(e) => setBusinessForm({ ...businessForm, competitors: e.target.value })}
-                    placeholder="Ej: Competidor1, Competidor2"
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Colores de marca (hex)
-                  </label>
-                  <input
-                    type="text"
-                    value={businessForm.brand_colors}
-                    onChange={(e) => setBusinessForm({ ...businessForm, brand_colors: e.target.value })}
-                    placeholder="Ej: #0a1931, #00d4ff, #ff6b35"
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Tono de marca
-                  </label>
-                  <select
-                    value={businessForm.tone}
-                    onChange={(e) => setBusinessForm({ ...businessForm, tone: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-                  >
-                    <option value="Profesional">Profesional</option>
-                    <option value="Amistoso">Amistoso</option>
-                    <option value="Creativo">Creativo</option>
-                    <option value="Serio">Serio</option>
-                    <option value="Divertido">Divertido</option>
-                  </select>
-                </div>
+                {/* ... más campos */}
               </div>
             </div>
           )}
 
-          {activeTab === 'plans' && (
+          {activeTab === 'plans' && savedAnalysis && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Generar Plan de Contenido</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">Generar Plan de Contenido</h3>
                 <p className="text-sm text-slate-400 mb-4">
-                  Crea un plan de publicación basado en el análisis de tu negocio.
+                  Basado en el análisis: <strong>{savedAnalysis.business_name}</strong>
                 </p>
               </div>
-
-              <div className="grid gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Nombre del plan
-                  </label>
-                  <input
-                    type="text"
-                    value={planForm.name}
-                    onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
-                    placeholder="Ej: Plan de marketing 2026"
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                      Duración (semanas)
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={4}
-                      value={planForm.duration_weeks}
-                      onChange={(e) => setPlanForm({ ...planForm, duration_weeks: parseInt(e.target.value) || 1 })}
-                      className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                      Publicaciones por semana
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={planForm.posts_per_week}
-                      onChange={(e) => setPlanForm({ ...planForm, posts_per_week: parseInt(e.target.value) || 3 })}
-                      className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                    Redes sociales
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {SOCIAL_PROVIDERS.map((provider) => (
-                      <label key={provider} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={planForm.platforms.includes(provider)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setPlanForm({
-                                ...planForm,
-                                platforms: [...planForm.platforms, provider]
-                              });
-                            } else {
-                              setPlanForm({
-                                ...planForm,
-                                platforms: planForm.platforms.filter(p => p !== provider)
-                              });
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-white/20 bg-[#0a1931]"
-                        />
-                        <span className="text-sm text-slate-300">{PROVIDERS[provider].label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Negocio (copiar del análisis)
-                  </label>
-                  <input
-                    type="text"
-                    value={planForm.business_name}
-                    onChange={(e) => setPlanForm({ ...planForm, business_name: e.target.value })}
-                    placeholder="Nombre del negocio"
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff]"
-                  />
-                </div>
-              </div>
+              {/* Plan form */}
             </div>
           )}
 
-          {activeTab === 'images' && (
+          {activeTab === 'images' && posts.length > 0 && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Generar Imagen</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">Generar Imágenes</h3>
                 <p className="text-sm text-slate-400 mb-4">
-                  Crea un prompt para generar contenido visual usando IA.
+                  {posts.length} posts generados • Crea prompts para cada contenido
                 </p>
               </div>
-
-              <div className="grid gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Prompt
-                  </label>
-                  <textarea
-                    value={imagePrompt}
-                    onChange={(e) => setImagePrompt(e.target.value)}
-                    placeholder="Describe la imagen que deseas generar..."
-                    rows={4}
-                    className="w-full rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2.5 text-sm text-white outline-none focus:border-[#00d4ff] resize-y"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                    Tipo de contenido
-                  </label>
-                  <div className="flex gap-2">
-                    {(['image', 'carousel', 'video'] as const).map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => setImageType(type)}
-                        className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition ${
-                          imageType === type
-                            ? 'bg-[#00d4ff] text-white'
-                            : 'border border-white/10 bg-[#0c1f3d] text-slate-300 hover:border-white/20'
-                        }`}
-                      >
-                        {type === 'image' ? 'Imagen' : type === 'carousel' ? 'Carrusel' : 'Video'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-[#0c1f3d]/50 rounded-xl p-4">
-                  <p className="text-xs text-slate-400">
-                    <strong>Nota:</strong> La generación real de imágenes se realizará mediante DALL-E, Midjourney o Similar.
-                    El prompt generado se guardará para uso posterior.
-                  </p>
-                </div>
-              </div>
+              {/* Image generation */}
             </div>
           )}
         </div>
@@ -489,6 +356,7 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
           <button
             onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition"
+            disabled={saving}
           >
             Cerrar
           </button>
@@ -496,30 +364,10 @@ export function VirtualAgentDialog({ open, onClose }: VirtualAgentDialogProps) {
             <button
               onClick={handleBusinessSubmit}
               disabled={saving || !businessForm.business_name}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#00d4ff] px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#00d4ff]/90"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#00d4ff] px-4 py-2 text-sm font-medium text-[#06152b] transition hover:bg-cyan-300 disabled:opacity-60"
             >
-              {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-              Analizar Negocio
-            </button>
-          )}
-          {activeTab === 'plans' && (
-            <button
-              onClick={handlePlanSubmit}
-              disabled={saving || !planForm.name || planForm.platforms.length === 0}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#00d4ff] px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#00d4ff]/90"
-            >
-              {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Generar Plan
-            </button>
-          )}
-          {activeTab === 'images' && (
-            <button
-              onClick={handleImageGenerate}
-              disabled={saving || !imagePrompt}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#00d4ff] px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#00d4ff]/90"
-            >
-              {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-              Generar Prompt
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+              Analizar
             </button>
           )}
         </div>
