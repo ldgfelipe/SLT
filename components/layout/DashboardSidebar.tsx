@@ -48,13 +48,13 @@ export function DashboardSidebar({
 
   const navItems = [
     {
-      label: 'Pipelines (Kanban)',
+      label: 'Pipelines',
       href: '/dashboard',
       icon: LayoutDashboard,
       exact: true,
     },
     {
-      label: 'Gestión de Clientes',
+      label: 'Clientes',
       href: '/dashboard/clients',
       icon: Building2,
       hidden: !isRoot,
@@ -70,63 +70,63 @@ export function DashboardSidebar({
       icon: FileText,
     },
     {
-      label: 'Pixel & Tracking',
+      label: 'Tracking',
       href: '/dashboard/tracking',
       icon: Activity,
     },
     {
-      label: 'Cuentas Sociales',
+      label: 'Social',
       href: '/dashboard/social-accounts',
       icon: Share2,
     },
     {
-      label: 'Calendario Publicador',
+      label: 'Calendario',
       href: '/dashboard/calendar',
       icon: CalendarDays,
     },
     {
-      label: 'Agente IA Contenido',
+      label: 'IA Contenido',
       href: '/dashboard/ai-agent',
       icon: Brain,
     },
     {
-      label: 'Campañas Ads',
+      label: 'Ads',
       href: '/dashboard/campaigns',
       icon: Megaphone,
     },
     {
-      label: 'Campañas Mail',
+      label: 'Mail',
       href: '/dashboard/mail-center/campanas',
       icon: Mail,
     },
     {
-      label: 'Listas y Contactos',
+      label: 'Listas',
       href: '/dashboard/mail-center/listas',
       icon: ListChecks,
     },
     {
-      label: 'Importar CSV',
+      label: 'Importar',
       href: '/dashboard/mail-center/importar',
       icon: Upload,
     },
     {
-      label: 'Validar Correos',
+      label: 'Validar',
       href: '/dashboard/mail-center/validacion',
       icon: BadgeCheck,
     },
     {
-      label: 'Integraciones Mail',
+      label: 'Integraciones',
       href: '/dashboard/mail-center/integraciones',
       icon: Plug,
     },
     {
-      label: 'Gestión de Usuarios',
+      label: 'Usuarios',
       href: '/dashboard/users',
       icon: ShieldAlert,
       hidden: !isRoot,
     },
     {
-      label: 'Configuración',
+      label: 'Ajustes',
       href: '/dashboard/settings',
       icon: Settings,
       hidden: !isRoot,
@@ -143,11 +143,11 @@ export function DashboardSidebar({
 
   return (
     <>
-      {/* Botón móvil para abrir cerrar */}
+      {/* Botón móvil */}
       <div className="lg:hidden fixed top-4 left-4 z-[100] p-2">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition bg-slate-900/50"
+          className="rounded-xl p-2 text-slate-200 hover:text-cyan-400 hover:bg-slate-800/50 transition bg-slate-900/70"
           aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -157,13 +157,13 @@ export function DashboardSidebar({
       {/* Overlay para móvil */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[99] transition"
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[99] transition"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
-      {/* Sidebar desktop - siempre visible */}
-      <aside className="hidden lg:flex w-64 border-r border-slate-200 dark:border-slate-800 bg-[#0a1931]/30 flex-col h-screen">
+      {/* Sidebar desktop */}
+      <aside className="hidden lg:flex flex-col h-screen bg-slate-900/95 border-r border-slate-800/50">
         <SidebarContent
           clients={clients}
           activeClientId={activeClientId}
@@ -177,9 +177,9 @@ export function DashboardSidebar({
         />
       </aside>
 
-      {/* Sidebar móvil - desplegable */}
+      {/* Sidebar móvil */}
       {mobileOpen && (
-        <aside className="lg:hidden fixed left-0 top-0 h-screen w-64 border-r border-slate-200 dark:border-slate-800 bg-[#0a1931]/30 flex flex-col z-[100] shadow-xl">
+        <aside className="lg:hidden fixed inset-y-0 left-0 z-[100] w-64 bg-slate-900/95 border-r border-slate-800/50 shadow-2xl">
           <SidebarContent
             clients={clients}
             activeClientId={activeClientId}
@@ -226,26 +226,23 @@ function SidebarContent({
   return (
     <>
       {/* Header */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-        <Link href="/dashboard" className="flex items-center gap-2 mb-4">
-          <div className="h-8 w-8 rounded-lg bg-cyan-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+      <div className={`p-3 border-b border-slate-800/50 ${collapsed ? 'items-center justify-center' : ''}`}>
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-cyan-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
             S
           </div>
           {!collapsed && (
             <div>
-              <span className="font-bold tracking-tight text-lg text-white">SLT</span>
-              <span className="text-[11px] text-slate-400 block -mt-1 font-medium">
-                Simple Lead Tracker
-              </span>
+              <span className="font-bold text-base text-white">SLT</span>
+              <span className="text-xs text-slate-400 block -mt-0.5">Lead Tracker</span>
             </div>
           )}
         </Link>
 
-        {/* Toggle collapse solo en desktop */}
         {!mobile && (
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="self-end rounded-lg p-2 text-slate-400 hover:text-cyan-400 hover:bg-white/10 transition"
+            className="ml-auto rounded-xl p-1.5 text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 transition"
             aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
           >
             <Settings className="h-4 w-4" />
@@ -254,7 +251,7 @@ function SidebarContent({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {visibleItems.map((item) => {
           const Icon = item.icon;
 
@@ -262,68 +259,60 @@ function SidebarContent({
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition ${
+              className={`flex items-center gap-3 px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
                 isActive(item.href)
-                  ? 'bg-cyan-500/10 text-cyan-400 font-semibold shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-cyan-500/15 text-cyan-300 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/40'
               }`}
             >
               <Icon className={`w-4 h-4 shrink-0 ${isActive(item.href) ? 'text-cyan-400' : 'text-slate-400'}`} />
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              <span className="truncate">{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
       {/* User Info & Logout */}
-      <div className="p-3 border-t border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-800/30 mb-2">
-          {collapsed ? (
-            <div className="h-7 w-7 rounded-full bg-cyan-500 text-white flex items-center justify-center font-bold text-xs">
-              {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
+      <div className="p-2 border-t border-slate-800/50">
+        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-800/40 mb-2">
+          <div className="h-7 w-7 rounded-full bg-cyan-500 text-white flex items-center justify-center font-bold text-xs">
+            {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
+          </div>
+          {!collapsed && (
+            <div className="truncate">
+              <span className="text-xs font-medium text-slate-100 block">{currentUser?.name || 'Admin'}</span>
+              <span className="text-[10px] text-slate-500 block -mt-0.5">
+                {isRoot ? 'SuperAdmin' : 'Cliente'}
+              </span>
             </div>
-          ) : (
-            <>
-              <div className="h-7 w-7 rounded-full bg-cyan-500 text-white flex items-center justify-center font-bold text-xs">
-                {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
-              </div>
-              <div className="truncate">
-                <span className="text-xs font-medium text-slate-100 block truncate">
-                  {currentUser?.name || 'Administrador'}
-                </span>
-                <span className="text-[10px] text-slate-400 block -mt-0.5">
-                  {isRoot ? 'Root SuperAdmin' : 'Admin Cliente'}
-                </span>
-              </div>
-            </>
           )}
           <form action={logoutUser} className="ml-auto">
             <button
               type="submit"
               title="Cerrar Sesión"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
+              className="p-1 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
             >
               <LogOut className="h-4 w-4" />
             </button>
           </form>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-500">
+        <div className="flex items-center gap-3 text-xs text-slate-500 justify-center">
           <a
-            href="https://tudominio.com/privacy-policy"
+            href="/app/docs/privacy-policy"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-cyan-400 transition"
           >
-            Política de privacidad
+            Privacidad
           </a>
           <a
-            href="https://tudominio.com/data-deletion"
+            href="/app/docs/data-deletion"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-cyan-400 transition"
           >
-            Eliminar mis datos
+            Borrar datos
           </a>
         </div>
       </div>
