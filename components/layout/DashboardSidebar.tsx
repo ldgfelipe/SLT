@@ -24,6 +24,7 @@ import {
   Menu,
   X,
 } from 'lucide-react';
+import { ClientSwitcher } from '@/components/layout/ClientSwitcher';
 import { logoutUser } from '@/app/actions/auth';
 import { Client, AppUser } from '@/types/database';
 
@@ -155,7 +156,7 @@ function SidebarContent({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className={`p-2 border-b border-slate-800/50 flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
+      <div className={`p-2 border-b border-slate-800/50 flex items-center gap-2 ${collapsed ? 'justify-center' : 'justify-between'}`}>
         <Link href="/dashboard" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-cyan-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
             S
@@ -165,6 +166,12 @@ function SidebarContent({
           )}
         </Link>
 
+        {/* Client Switcher - solo en desktop */}
+        {!mobile && isRoot && (
+          <ClientSwitcher clients={clients} activeClientId={activeClientId} />
+        )}
+
+        {/* Botón colapsar */}
         {!mobile && (
           <button
             onClick={() => setCollapsed(!collapsed)}
