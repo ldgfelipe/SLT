@@ -10,7 +10,6 @@ import {
   FileText,
   Activity,
   ShieldAlert,
-  LogOut,
   Share2,
   CalendarDays,
   Megaphone,
@@ -74,14 +73,6 @@ export function DashboardSidebar({
 
   return (
     <>
-      {/* Overlay móvil */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-md z-[99] lg:hidden transition-all duration-300"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
       {/* Botón móvil - siempre visible */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
@@ -91,24 +82,30 @@ export function DashboardSidebar({
         {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
-      {/* Sidebar móvil - off-canvas con animación */}
+      {/* Overlay móvil */}
       {mobileOpen && (
-        <>
-          <div className="fixed inset-0 z-[99] bg-black/60 backdrop-blur-md lg:hidden transition-all duration-300" />
-          <aside className="fixed top-0 left-0 z-[100] h-screen w-64 bg-slate-900/95 border-r border-slate-800/50 shadow-2xl transform -translate-x-full transition-transform duration-300 ease-out lg:hidden"
-            style={{ transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)' }}>
-            <MobileSidebarContent
-              clients={clients}
-              activeClientId={activeClientId}
-              currentUser={currentUser}
-              isRoot={isRoot}
-              pathname={pathname}
-              isActive={isActive}
-              visibleItems={visibleItems}
-            />
-          </aside>
-        </>
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-[99] lg:hidden transition-all duration-300"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
+
+      {/* Sidebar móvil */}
+      <div className={`fixed inset-y-0 left-0 z-[100] lg:hidden transition-transform duration-300 ease-out ${
+        mobileOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <aside className="h-screen w-64 bg-slate-900/95 border-r border-slate-800/50 shadow-2xl flex flex-col">
+          <MobileSidebarContent
+            clients={clients}
+            activeClientId={activeClientId}
+            currentUser={currentUser}
+            isRoot={isRoot}
+            pathname={pathname}
+            isActive={isActive}
+            visibleItems={visibleItems}
+          />
+        </aside>
+      </div>
 
       {/* Sidebar desktop - permanente */}
       <aside className="hidden lg:flex bg-slate-900/95 border-r border-slate-800/50 h-screen transition-all duration-300 w-64">
@@ -126,9 +123,9 @@ export function DashboardSidebar({
         />
       </aside>
 
-      {/* Spacer para desktop cuando la sidebar se colapsa - opcional */}
+      {/* Spacer para desktop cuando la sidebar se colapsa */}
       {collapsed && (
-        <div className="hidden lg:block w-16 bg-slate-900/95 border-r border-slate-800/50" />
+        <div className="hidden lg:block w-16 bg-slate-900/95 border-l border-slate-800/50" />
       )}
     </>
   );
@@ -165,7 +162,7 @@ function MobileSidebarContent({
         </Link>
       </div>
 
-      {/* Client Switcher - solo en desktop */}
+      {/* Client Switcher */}
       {isRoot && clients.length > 0 && (
         <div className="px-2.5 py-2 border-b border-slate-800/50">
           <ClientSwitcher clients={clients} activeClientId={activeClientId} />
@@ -261,7 +258,7 @@ function SidebarContent({
           )}
         </Link>
 
-        {/* Client Switcher - solo en desktop no móvil */}
+        {/* Client Switcher - solo en desktop */}
         {!mobile && isRoot && (
           <ClientSwitcher clients={clients} activeClientId={activeClientId} />
         )}
