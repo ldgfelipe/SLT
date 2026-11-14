@@ -147,17 +147,6 @@ export function KanbanBoard({ initialStages, clientId }: KanbanBoardProps) {
             onOpenDeal={(deal) => setSelectedDealId(deal.id)}
             onStageUpdated={handleStageUpdated}
             onStageDeleted={handleStageDeleted}
-            onDeleteDeal={(dealId, success) => {
-              if (success) {
-                // Eliminar del estado local
-                setStages((prev) =>
-                  prev.map((stage) => ({
-                    ...stage,
-                    deals: stage.deals.filter((d) => d.id !== dealId),
-                  }))
-                );
-              }
-            }}
           />
         ))}
       </div>

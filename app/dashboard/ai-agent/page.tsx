@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Brain, ChevronRight } from 'lucide-react';
 import { VirtualAgentDialog } from '@/components/ai/VirtualAgentDialog';
 import { Client } from '@/types/database';
@@ -11,18 +11,16 @@ export default function AIAgentPage() {
   const router = useRouter();
 
   // Verificar si el usuario está autenticado
-  const checkAuth = async () => {
-    const res = await fetch('/api/auth/user');
-    const data = await res.json();
-    if (!data.user) {
-      router.push('/login');
-    }
-  };
-
-  // Verificar al montar
-  useState(() => {
+  useEffect(() => {
+    const checkAuth = async () => {
+      const res = await fetch('/api/auth/user');
+      const data = await res.json();
+      if (!data.user) {
+        router.push('/login');
+      }
+    };
     checkAuth();
-  }, []);
+  }, [router]);
 
   return (
     <main className="flex-1 overflow-y-auto p-6">

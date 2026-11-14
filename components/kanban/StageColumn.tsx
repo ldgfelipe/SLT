@@ -42,7 +42,7 @@ export function StageColumn({ stage, deals, onOpenDeal, onStageUpdated, onStageD
       return;
     }
 
-    onStageUpdated?.({ ...stage, name: '', deals: [], position: 0 });
+    onStageUpdated?.({ ...stage, name: '', deals: [] });
     setShowDeleteConfirm(false);
   };
 
