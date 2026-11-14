@@ -22,6 +22,7 @@ import {
   Brain,
   Menu,
   X,
+  ChevronDown,
 } from 'lucide-react';
 import { ClientSwitcher } from '@/components/layout/ClientSwitcher';
 import { logoutUser } from '@/app/actions/auth';
@@ -41,6 +42,7 @@ export function DashboardSidebar({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const isRoot = currentUser?.role === 'root';
 
@@ -69,33 +71,24 @@ export function DashboardSidebar({
   // Cerrar menú móvil al navegar
   React.useEffect(() => {
     if (mobileOpen) setMobileOpen(false);
-  }, [pathname, mobileOpen]);
+    if (mobileMenuOpen) setMobileMenuOpen(false);
+  }, [pathname, mobileOpen, mobileMenuOpen]);
 
   return (
     <>
-      {/* Botón móvil - siempre visible */}
+      {/* Botón móvil - Header con menú desplegable */}
       <button
-        onClick={() => setMobileOpen(!mobileOpen)}
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         className="fixed top-4 left-4 z-[101] lg:hidden p-2 rounded-xl text-slate-200 hover:text-cyan-400 hover:bg-slate-800/50 transition bg-slate-900/70"
-        aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+        aria-label="Abrir menú"
       >
-        {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
-      {/* Overlay móvil */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-md z-[99] lg:hidden transition-all duration-300"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* Sidebar móvil */}
-      <div className={`fixed inset-y-0 left-0 z-[100] lg:hidden transition-transform duration-300 ease-out ${
-        mobileOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <aside className="h-screen w-64 bg-slate-900/95 border-r border-slate-800/50 shadow-2xl flex flex-col">
-          <MobileSidebarContent
+      {/* Menú móvil desplegable */}
+      {mobileMenuOpen && (
+        <div className="fixed top-16 left-4 z-[100] w-64 bg-slate-900/95 border border-slate-800/50 rounded-xl shadow-2xl lg:hidden">
+          <MobileMenuContent
             clients={clients}
             activeClientId={activeClientId}
             currentUser={currentUser}
@@ -103,9 +96,10 @@ export function DashboardSidebar({
             pathname={pathname}
             isActive={isActive}
             visibleItems={visibleItems}
+            onClose={() => setMobileMenuOpen(false)}
           />
-        </aside>
-      </div>
+        </div>
+      )}
 
       {/* Sidebar desktop - permanente */}
       <aside className="hidden lg:flex bg-slate-900/95 border-r border-slate-800/50 h-screen transition-all duration-300 w-64">
@@ -131,7 +125,7 @@ export function DashboardSidebar({
   );
 }
 
-interface MobileSidebarContentProps {
+interface MobileMenuContentProps {
   clients: Client[];
   activeClientId?: string;
   currentUser: AppUser | null;
@@ -139,9 +133,10 @@ interface MobileSidebarContentProps {
   pathname: string;
   isActive: (href: string) => boolean;
   visibleItems: Array<{ label: string; href: string; icon: any; exact?: boolean; hidden?: boolean }>;
+  onClose: () => void;
 }
 
-function MobileSidebarContent({
+function MobileMenuContent({
   clients,
   activeClientId,
   currentUser,
@@ -149,12 +144,13 @@ function MobileSidebarContent({
   pathname,
   isActive,
   visibleItems,
-}: MobileSidebarContentProps) {
+  onClose,
+}: MobileMenuContentProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-2.5 border-b border-slate-800/50 flex items-center justify-between">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2" onClick={onClose}>
           <div className="h-7 w-7 rounded-lg bg-cyan-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
             S
           </div>
@@ -162,15 +158,8 @@ function MobileSidebarContent({
         </Link>
       </div>
 
-      {/* Client Switcher */}
-      {isRoot && clients.length > 0 && (
-        <div className="px-2.5 py-2 border-b border-slate-800/50">
-          <ClientSwitcher clients={clients} activeClientId={activeClientId} />
-        </div>
-      )}
-
       {/* Nav */}
-      <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {visibleItems.map((item) => {
           const Icon = item.icon;
 
@@ -178,6 +167,7 @@ function MobileSidebarContent({
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={`flex items-center gap-3 px-2.5 py-1.5 text-sm rounded-lg transition-all duration-200 ${
                 isActive(item.href)
                   ? 'bg-cyan-500/15 text-cyan-300 font-semibold'
@@ -193,7 +183,7 @@ function MobileSidebarContent({
 
       {/* User Info & Logout */}
       <div className="p-2.5 border-t border-slate-800/50">
-        <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/40 mb-2">
+        <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 mb-2">
           <div className="h-6 w-6 rounded-full bg-cyan-500 text-white flex items-center justify-center font-bold text-[11px] flex-shrink-0">
             {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
           </div>
@@ -276,7 +266,7 @@ function SidebarContent({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-1 space-y-0.25 overflow-y-auto">
+      <nav className="flex-1 p-1 space-y-0.5 overflow-y-auto">
         {visibleItems.map((item) => {
           const Icon = item.icon;
 
