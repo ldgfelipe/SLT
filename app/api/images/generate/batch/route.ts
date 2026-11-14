@@ -45,16 +45,17 @@ export async function POST(request: NextRequest) {
 
     try {
       const imageResponse = await generateImage(prompt, openai_api_key);
+      const imageData = await imageResponse.json();
 
       const imageRecord = {
         client_id: plan.client_id,
         plan_id: plan_id,
         post_titulo: post.titulo,
         prompt: prompt,
-        image_url: imageResponse?.data?.[0]?.url || null,
+        image_url: imageData?.data?.[0]?.url || null,
         type: post.tipo || 'image',
-        status: imageResponse?.data?.[0]?.url ? 'completed' : 'failed',
-        error: imageResponse?.error || null,
+        status: imageData?.data?.[0]?.url ? 'completed' : 'failed',
+        error: imageData?.error || null,
         created_at: new Date().toISOString(),
       };
 

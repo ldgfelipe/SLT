@@ -3,9 +3,26 @@
 import { useState } from 'react';
 import { Brain, ChevronRight } from 'lucide-react';
 import { VirtualAgentDialog } from '@/components/ai/VirtualAgentDialog';
+import { Client } from '@/types/database';
+import { useRouter } from 'next/navigation';
 
 export default function AIAgentPage() {
   const [showAgent, setShowAgent] = useState(false);
+  const router = useRouter();
+
+  // Verificar si el usuario está autenticado
+  const checkAuth = async () => {
+    const res = await fetch('/api/auth/user');
+    const data = await res.json();
+    if (!data.user) {
+      router.push('/login');
+    }
+  };
+
+  // Verificar al montar
+  useState(() => {
+    checkAuth();
+  }, []);
 
   return (
     <main className="flex-1 overflow-y-auto p-6">
@@ -33,7 +50,7 @@ export default function AIAgentPage() {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[#00d4ff] mt-0.5">•</span>
-              <span>Generar prompts para imágenes y contenidos visuales</span>
+              <span>Generar prompts para imágenes y contenudos visuales</span>
             </li>
           </ul>
         </div>
@@ -64,9 +81,9 @@ export default function AIAgentPage() {
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#00d4ff]/10 flex items-center justify-center text-[#00d4ff] font-bold">3</div>
               <div>
-                <h3 className="text-sm font-semibold text-white">Publica automáticamente</h3>
+                <h3 className="text-sm font-semibold text-white">Genera imágenes con IA</h3>
                 <p className="text-sm text-slate-400">
-                  Programa o publica directamente desde múltiples cuentas (Facebook, Instagram, etc.).
+                  Usa DALL-E 3 para generar imágenes profesionales para cada publicación.
                 </p>
               </div>
             </div>
@@ -92,7 +109,10 @@ export default function AIAgentPage() {
           </button>
         </div>
 
-        <VirtualAgentDialog open={showAgent} onClose={() => setShowAgent(false)} />
+        <VirtualAgentDialog 
+          open={showAgent} 
+          onClose={() => setShowAgent(false)}
+        />
       </div>
     </main>
   );

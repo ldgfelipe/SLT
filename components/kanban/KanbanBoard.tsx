@@ -18,6 +18,7 @@ import { DealCard } from './DealCard';
 import { LeadDetailDrawer } from '@/components/lead/LeadDetailDrawer';
 import { AddLeadDialog } from './AddLeadDialog';
 import { updateDealStage } from '@/app/actions/deals';
+import { deleteStage, updateStageName } from '@/app/actions/stages';
 import { Stage, Deal } from '@/types/database';
 
 interface KanbanBoardProps {
@@ -116,6 +117,16 @@ export function KanbanBoard({ initialStages, clientId }: KanbanBoardProps) {
     });
   };
 
+  const handleStageUpdated = (updatedStage: Stage) => {
+    setStages((prev) =>
+      prev.map((s) => (s.id === updatedStage.id ? updatedStage : s))
+    );
+  };
+
+  const handleStageDeleted = (deletedStageId: string) => {
+    setStages((prev) => prev.filter((s) => s.id !== deletedStageId));
+  };
+
   return (
     <DndContext
       sensors={sensors}
@@ -134,6 +145,19 @@ export function KanbanBoard({ initialStages, clientId }: KanbanBoardProps) {
             stage={stage}
             deals={stage.deals || []}
             onOpenDeal={(deal) => setSelectedDealId(deal.id)}
+            onStageUpdated={handleStageUpdated}
+            onStageDeleted={handleStageDeleted}
+            onDeleteDeal={(dealId, success) => {
+              if (success) {
+                // Eliminar del estado local
+                setStages((prev) =>
+                  prev.map((stage) => ({
+                    ...stage,
+                    deals: stage.deals.filter((d) => d.id !== dealId),
+                  }))
+                );
+              }
+            }}
           />
         ))}
       </div>

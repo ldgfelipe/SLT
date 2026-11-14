@@ -307,6 +307,41 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ images: data }, { status: 200 });
       }
 
+      case 'save_to_calendar': {
+        const { plan, posts } = payload as { plan: any; posts: any[] };
+        
+        if (!plan || !posts?.length) {
+          return NextResponse.json({ error: 'plan y posts son requeridos.' }, { status: 400 });
+        }
+
+        const savedPosts: any[] = [];
+
+        for (const post of posts) {
+          const postDate = post.fecha_posteo || new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const postTime = post.hora_sugerida || '10:00';
+
+          const { data: savedPost } = await supabase
+            .from('posts')
+            .insert({
+              client_id: clientId,
+              titulo: post.titulo,
+              descripcion: post.descripcion,
+              imagen_url: post.imagen_url || null,
+              plataformas: plan.platforms || ['instagram'],
+              scheduled_at: `${postDate}T${postTime}:00`,
+              status: 'queued',
+              external_post_ids: {},
+              attempts: 0
+            })
+            .select()
+            .single();
+
+          if (savedPost) savedPosts.push(savedPost);
+        }
+
+        return NextResponse.json({ saved: savedPosts.length, posts: savedPosts }, { status: 201 });
+      }
+
       default:
         return NextResponse.json({ 
           error: 'Acción no válida. Usa: analyze_business, generate_content_plan, generate_image_prompt, get_analyses, get_plans, get_generated_images' 
