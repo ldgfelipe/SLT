@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Brain, Calendar, Image as ImageIcon, BarChart3, Save, Loader2, Copy, ExternalLink, Check, Loader2 } from 'lucide-react';
+import { X, Brain, Calendar, Image as ImageIcon, BarChart3, Save, Loader2, Copy, ExternalLink, Check } from 'lucide-react';
 import type { SocialProvider } from '@/types/database';
 import { PROVIDERS, SOCIAL_PROVIDERS } from '@/lib/growth/providers';
 import { Client } from '@/types/database';
