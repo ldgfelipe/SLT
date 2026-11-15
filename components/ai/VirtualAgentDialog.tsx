@@ -317,8 +317,8 @@ export function VirtualAgentDialog({
           </button>
           <button onClick={() => setActiveTab('images')} disabled={!generatedPlan || posts.length === 0} className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === 'images' ? 'bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
             <ImageIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Imágenes</span>
-            <span className="sm:inline">Img ({posts.length})</span>
+            <span className="hidden sm:inline">Ver Publicaciones</span>
+            <span className="sm:inline">Publicaciones ({posts.length})</span>
           </button>
         </div>
 
@@ -421,57 +421,60 @@ export function VirtualAgentDialog({
 
           {activeTab === 'images' && posts.length > 0 && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-white mb-2">3. Generar Imágenes</h3>
-              <p className="text-sm text-slate-400 mb-4">{posts.length} posts listos • Usa OpenAI DALL-E 3</p>
+              <h3 className="text-lg font-semibold text-white mb-2">Publicaciones Generadas</h3>
+              <p className="text-sm text-slate-400 mb-4">{posts.length} publicaciones listas para el calendario</p>
               
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-400 mb-2">API Key de OpenAI</label>
-                <div className="flex gap-2">
-                  <input type="text" value={openaiApiKey} onChange={(e) => setOpenaiApiKey(e.target.value)} placeholder="sk-..." className="flex-1 rounded-xl border border-white/10 bg-[#0c1f3d] px-3 py-2 text-sm text-white placeholder:text-slate-500" />
-                  <button onClick={() => {}} className="rounded-xl px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/40 transition"><Save className="h-4 w-4" /></button>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500">Necessary para generar imágenes reales.</p>
+              <div className="rounded-lg bg-cyan-500/10 border border-cyan-500/20 p-4 mb-4">
+                <p className="text-sm text-cyan-200"><strong className="text-cyan-300">Insight IA:</strong> Al crear cada publicación en el calendario, el sistema te recomendará el tipo de medio adecuado según el platform y contenido. Puedes elegir: Imagen, Carrusel o Video.</p>
               </div>
-              
-              <div className="flex gap-3">
-                <button onClick={handlePlanSubmit} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-400">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+
+              <div className="flex gap-3 mb-4">
+                <button onClick={handleSaveToCalendar} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-400">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
                   Guardar en calendario
                 </button>
               </div>
               
               <div className="space-y-4 max-h-96 overflow-y-auto">
-                {posts.map((post, idx) => (
-                  <div key={idx} className="rounded-xl border border-white/10 bg-[#0c1f3d] p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-white">{post.titulo}</h4>
-                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">{post.descripcion}</p>
-                        <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
-                          <span>📅 {post.fecha_posteo || 'Fecha sugerida'}</span>
-                          <span>⏰ {post.hora_sugerida}</span>
+                {posts.map((post, idx) => {
+                  const platform = planForm.platforms[0] || 'instagram';
+                  const recommendations = {
+                    facebook: '📊 Imagen - Ideal para publicaciones con texto corto y link',
+                    instagram: '🖼️ Carrusel - Perfecto para storytelling y múltiples imágenes',
+                    tiktok: '🎥 Video - Prioriza videos cortos con música y efectos',
+                    linkedin: '📝 Imagen con texto - Contenido profesional y valioso',
+                    threads: '🖼️ Imagen - Rápido y visual para engagement',
+                    x: '🖼️ Imagen con texto - Claro y conciso para Twitter'
+                  };
+                  
+                  return (
+                    <div key={idx} className="rounded-xl border border-white/10 bg-[#0c1f3d] p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-white">{post.titulo}</h4>
+                          <p className="text-xs text-slate-400 mt-1 line-clamp-2">{post.descripcion}</p>
+                          <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+                            <span>📅 {post.fecha_posteo || 'Fecha sugerida'}</span>
+                            <span>⏰ {post.hora_sugerida}</span>
+                          </div>
+                          <div className="mt-2 p-2 bg-slate-800/40 rounded-lg">
+                            <p className="text-xs text-cyan-300 font-medium">Recomendación para {platform}:</p>
+                            <p className="text-xs text-slate-300 mt-1">{recommendations[platform as keyof typeof recommendations] || recommendations.instagram}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <button className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-slate-800/40 text-slate-300 hover:bg-slate-700/40">
+                            <ExternalLink className="h-3 w-3" />
+                            Ver
+                          </button>
                         </div>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <button className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-slate-800/40 text-slate-300 hover:bg-slate-700/40">
-                          <ExternalLink className="h-3 w-3" />
-                          Image
-                        </button>
-                        <button className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-slate-800/40 text-slate-300 hover:bg-slate-700/40">
-                          <ExternalLink className="h-3 w-3" />
-                          Carousel
-                        </button>
-                        <button className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-slate-800/40 text-slate-300 hover:bg-slate-700/40">
-                          <ExternalLink className="h-3 w-3" />
-                          Video
-                        </button>
+                      <div className="mt-3 pt-3 border-t border-white/5">
+                        <button onClick={() => {}} className="flex items-center gap-1 text-xs text-slate-400 hover:text-cyan-400"><Copy className="h-3 w-3" /> Copiar</button>
                       </div>
                     </div>
-                    <div className="mt-3 pt-3 border-t border-white/5">
-                      <button onClick={() => {}} className="flex items-center gap-1 text-xs text-slate-400 hover:text-cyan-400"><Copy className="h-3 w-3" /> Copiar prompt</button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
