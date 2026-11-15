@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Brain, Calendar, Image as ImageIcon, BarChart3, Save, Loader2, Copy, ExternalLink, Check } from 'lucide-react';
+import { X, Brain, Calendar, Image as ImageIcon, BarChart3, Save, Loader2, Copy, ExternalLink, Check, Settings } from 'lucide-react';
 import type { SocialProvider } from '@/types/database';
 import { PROVIDERS, SOCIAL_PROVIDERS } from '@/lib/growth/providers';
 import { Client } from '@/types/database';
@@ -196,7 +196,7 @@ export function VirtualAgentDialog({
   const generateImages = async () => {
     if (!openaiApiKey || posts.length === 0) return;
 
-    const imageResults = [];
+    const imageResults: Array<{ post_titulo: string; image_url: string | null; prompt: string }> = [];
     
     for (const post of posts) {
       try {
