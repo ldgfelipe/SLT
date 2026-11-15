@@ -150,24 +150,116 @@ export function VirtualAgentDialog({
     if (!planForm.name) return;
     setSaving(true);
     try {
-      const response = await fetch('/api/ai-agent', {
+      // Primero generar el plan de contenido con IA
+      const planResponse = await fetch('/api/ai-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'generate_content_plan',
-          ...planForm,
+          name: planForm.name,
+          duration_weeks: planForm.duration_weeks,
+          platforms: planForm.platforms,
+          posts_per_week: planForm.posts_per_week,
+          business_name: planForm.business_name,
+          category: planForm.category,
+          description: planForm.description,
+          target_audience: planForm.target_audience,
           competitors: planForm.competitors || [],
           brand_colors: planForm.brand_colors || ['#0a1931', '#00d4ff'],
           tone: planForm.tone || 'Profesional'
         })
       });
+      
+      const planData = await planResponse.json();
+      
+      if (!planResponse.ok) {
+        alert(planData.error || 'Error al generar el plan');
+        return;
+      }
+
+      setGeneratedPlan(planData.plan);
+      schedulePosts(planData.plan);
+      
+      // Si hay API Key de OpenAI, generar imágenes
+      if (openaiApiKey && posts.length > 0) {
+        await generateImages();
+      }
+      
+      setActiveTab('images');
+      alert('Plan de contenido generado. Ahora puedes generar imágenes.');
+    } catch (e) { 
+      alert('Error de conexión'); 
+    }
+    finally { setSaving(false); }
+  };
+
+  const generateImages = async () => {
+    if (!openaiApiKey || posts.length === 0) return;
+
+    const imageResults = [];
+    
+    for (const post of posts) {
+      try {
+        const imageResponse = await fetch('/api/images/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: post.prompt || post.descripcion,
+            openai_api_key: openaiApiKey,
+            platform: planForm.platforms[0]
+          })
+        });
+        
+        const imageData = await imageResponse.json();
+        if (imageData.image_url) {
+          imageResults.push({
+            post_titulo: post.titulo,
+            image_url: imageData.image_url,
+            prompt: post.prompt || post.descripcion
+          });
+        }
+      } catch (e) {
+        console.error('Error generando imagen:', e);
+      }
+    }
+    
+    // Actualizar posts con URLs de imágenes
+    setPosts(prev => prev.map(p => ({
+      ...p,
+      imagen_url: imageResults.find(i => i.post_titulo === p.titulo)?.image_url || null,
+      prompt: imageResults.find(i => i.post_titulo === p.titulo)?.prompt || p.descripcion
+    })));
+  };
+
+  const handleSaveToCalendar = async () => {
+    if (!generatedPlan || posts.length === 0) return;
+    setSaving(true);
+    try {
+      const response = await fetch('/api/ai-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_to_calendar',
+          plan: {
+            name: generatedPlan.name,
+            duration_weeks: planForm.duration_weeks,
+            platforms: planForm.platforms,
+            posts_per_week: planForm.posts_per_week,
+          },
+          posts
+        })
+      });
+      
       const data = await response.json();
+      
       if (response.ok) {
-        setGeneratedPlan(data.plan);
-        schedulePosts(data.plan);
+        if (openaiApiKey) {
+          await generateImages();
+        }
         setActiveTab('images');
+        alert('Publicaciones guardadas en el calendario');
       } else {
-        alert(data.error || 'Error al generar el plan');
+        alert(data.error || 'Error al guardar en el calendario');
       }
     } catch (e) { alert('Error de conexión'); }
     finally { setSaving(false); }
@@ -396,8 +488,14 @@ export function VirtualAgentDialog({
           )}
           {activeTab === 'plans' && (
             <button onClick={handlePlanSubmit} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-400">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
               Generar Plan
+            </button>
+          )}
+          {activeTab === 'images' && posts.length > 0 && (
+            <button onClick={handleSaveToCalendar} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-400">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
+              Guardar en calendario
             </button>
           )}
         </div>
