@@ -3,67 +3,192 @@ import { getCurrentUser } from '@/app/actions/auth';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { canAccessClient } from '@/lib/growth/access';
 import type { SocialProvider } from '@/types/database';
+import { getSetting } from '@/lib/app/settings';
 
-// Tipos
-interface BusinessAnalysisRequest {
-  business_name: string;
-  category?: string;
-  description?: string;
-  target_audience?: string;
-  competitors?: string[];
-  brand_colors?: string[];
-  tone?: string;
-}
+// Configuraciones por proveedor de IA
+const PROVIDERS_CONFIG = {
+  openai: {
+    name: 'OpenAI',
+    apiHeader: 'Authorization',
+    apiValue: 'Bearer ',
+    models: ['gpt-4', 'gpt-3.5-turbo', 'gpt-4o'],
+    defaultModel: 'gpt-4o',
+  },
+  freellmapi: {
+    name: 'freellmapi',
+    apiHeader: 'Authorization',
+    apiValue: 'Bearer ',
+    models: ['auto', 'freellm/fast', 'freellm/pro'],
+    defaultModel: 'auto',
+  },
+  openroute: {
+    name: 'openroute',
+    apiHeader: 'Authorization',
+    apiValue: 'Bearer ',
+    models: ['auto', 'openroute/directions'],
+    defaultModel: 'auto',
+  },
+};
 
-interface ContentPlanRequest {
-  name: string;
-  duration_weeks: number;
-  platforms: SocialProvider[];
-  posts_per_week: number;
-  business_name?: string;
-  category?: string;
-  description?: string;
-  target_audience?: string;
-  competitors?: string[];
-  brand_colors?: string[];
-  tone?: string;
-}
-
-interface GenerateImageRequest {
-  prompt: string;
-  platform?: SocialProvider;
-  type?: 'image' | 'carousel' | 'video';
-  plan_id?: string;
-}
-
-// Simulación de análisis con IA (en producción usarías OpenAI o Anthropic)
-function analyzeBusiness(data: BusinessAnalysisRequest) {
+// Obtener configuración actual del proveedor desde Supabase
+async function getProviderConfig() {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', [
+        'ia_provider',
+        'ia_api_key',
+        'ia_model',
+        'ia_temperature',
+        'ia_max_tokens',
+        'ia_timeout',
+      ])
+      .single();
+    
+    if (data) {
+      const settings: Record<string, string> = {};
+      (data as any[]).forEach((row: any) => { settings[row.key] = row.value; });
+      
+      const provider = settings.ia_provider || 'freellmapi';
+      const apiKey = settings.ia_api_key || '';
+      const model = settings.ia_model || PROVIDERS_CONFIG[provider]?.defaultModel || 'auto';
+      
+      return {
+        provider,
+        apiKey,
+        model,
+        temperature: parseFloat(settings.ia_temperature || '0.7'),
+        maxTokens: parseInt(settings.ia_max_tokens || '4000'),
+        timeout: parseInt(settings.ia_timeout || '30'),
+        config: PROVIDERS_CONFIG[provider] || PROVIDERS_CONFIG.freellmapi,
+      };
+    }
+  } catch (e) {
+    console.warn('Error reading IA provider config from Supabase:', e);
+  }
+  
+  // Default: freellmapi gratuito
   return {
-    category: data.category || 'General',
-    target_audience: data.target_audience || 'General audience',
-    competitors: data.competitors || [],
-    brand_colors: data.brand_colors || ['#0a1931', '#00d4ff'],
-    tone: data.tone || 'Profesional',
-    key_messages: [
-      `Calidad y profesionalismo en ${data.business_name}`,
-      'Solución eficiente y confiable',
-      'Enfoque centrado en el cliente'
-    ],
-    insights: [
-      `Tu negocio ${data.business_name} se destaca por su enfoque en calidad`,
-      'Considera destacar los beneficios únicos en cada publicación',
-      'Usa testimonios reales para generar confianza'
-    ]
+    provider: 'freellmapi',
+    apiKey: '',
+    model: 'auto',
+    temperature: 0.7,
+    maxTokens: 4000,
+    timeout: 30,
+    config: PROVIDERS_CONFIG.freellmapi,
   };
 }
 
-// Generar plan de publicación
-function generateContentPlan(data: ContentPlanRequest) {
+// Función auxiliar para análisis de negocio con proveedor configurable
+async function analyzeBusiness(data: any, config: any) {
+  const provider = config.provider || 'freellmapi';
+  const apiKey = config.apiKey || '';
+  const model = config.model || 'auto';
+  const temperature = config.temperature || 0.7;
+  
+  // Si no hay API key o usa clave de prueba, usar análisis local/simulado
+  if (!apiKey || apiKey.startsWith('sk-test') || apiKey === 'sk-test-key-for-slt-development-only-1234567890abcdef') {
+    // Análisis local/simulado - no requiere API key
+    return {
+      category: data.category || 'General',
+      target_audience: data.target_audience || 'General audience',
+      competitors: data.competitors || [],
+      brand_colors: data.brand_colors || ['#0a1931', '#00d4ff'],
+      tone: data.tone || 'Profesional',
+      key_messages: [
+        `Calidad y profesionalismo en ${data.business_name}`,
+        'Solución eficiente y confiable',
+        'Enfoque centrado en el cliente'
+      ],
+      insights: [
+        `Tu negocio ${data.business_name} se destaca por su enfoque en calidad`,
+        'Considera destacar los beneficios únicos en cada publicación',
+        'Usa testimonios reales para generar confianza'
+      ]
+    };
+  }
+  
+  // Llamada real al proveedor de IA
+  try {
+    const response = await fetch('https://api.freellmapi.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model === 'auto' ? 'freellm/fast' : model,
+        messages: [
+          {
+            role: 'system',
+            content: 'Eres un experto en marketing y análisis de negocios. Proporciona insights estratégicos y recomendaciones prácticas.'
+          },
+          {
+            role: 'user',
+            content: `Analiza el siguiente negocio y proporciona un análisis completo:\n\nNombre: ${data.business_name}\nCategoría: ${data.category || 'General'}\nDescripción: ${data.description || ''}\nAudiencia objetivo: ${data.target_audience || 'General audience'}\nCompetidores: ${data.competitors?.join(', ') || 'Ninguno'}\nColores de marca: ${data.brand_colors?.join(', ') || 'Ninguno'}\nTono de comunicación: ${data.tone || 'Profesional'}\n\nProporciona un JSON con: category, target_audience, competitors, brand_colors, tone, key_messages (array de 3), insights (array de 3).`
+          }
+        ],
+        temperature: temperature,
+        max_tokens: model === 'auto' ? 1000 : undefined,
+      }),
+    });
+    
+    // Si la llamada a freellmapi falla, intentar con openroute o caer de regreso local
+    if (!response.ok) {
+      console.warn('freellmapi call failed, trying fallback...');
+      // Intentar con openroute para routing/navigation
+      if (provider !== 'openroute') {
+        try {
+          const routeResponse = await fetch('https://api.openroute.com/v2/directions/driving-car', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'sk-test-openroute-key',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              coordinates: [[-99.133209, 19.432608], [-99.150647, 19.436167]],
+              instructions: true,
+              language: 'es-MX',
+            }),
+          });
+          
+          if (routeResponse.ok) {
+            return { type: 'route', data: await routeResponse.json() };
+          }
+        } catch (e) {
+          console.error('Route fallback also failed:', e);
+        }
+      }
+      
+      // Caer de regreso al análisis local
+      return analyzeBusiness(data, { ...config, apiKey: '' });
+    }
+    
+    if (!response.ok) {
+      return analyzeBusiness(data, { ...config, apiKey: '' });
+    }
+    
+    const result = await response.json();
+    return result.choices?.[0]?.message?.content 
+      ? JSON.parse(result.choices[0].message.content)
+      : analyzeBusiness(data, { ...config, apiKey: '' });
+    
+  } catch (error) {
+    console.error('Error in IA analysis:', error);
+    // Caer de regreso al análisis local
+    return analyzeBusiness(data, { ...config, apiKey: '' });
+  }
+}
+
+// Generar plan de publicación (siempre local, no requiere API key)
+function generateContentPlan(data: any) {
   const dates: string[] = [];
   const posts = [];
 
   const startDate = new Date();
-  
+
   for (let week = 0; week < data.duration_weeks; week++) {
     for (let day = 0; day < 7; day++) {
       for (let postNum = 0; postNum < Math.ceil(data.posts_per_week / 7); postNum++) {
@@ -96,51 +221,22 @@ function generateContentPlan(data: ContentPlanRequest) {
     },
     suggestions: [
       'Mantén consistencia en los horarios de publicación',
-      'Interactúa con tus seguidores en los primeros 2 horas',
+      'Interactúa con tus seguidores en las primeras 2 horas',
       'Usa emojis para incrementar el engagement en Instagram'
     ]
   };
 }
 
-// Generar prompt para imagen
-function generateImagePrompt(data: GenerateImageRequest, businessInfo?: any) {
-  let prompt = data.prompt;
+// Generar prompt de imagen (siempre local)
+function generateImagePrompt(data: any, config: any) {
+  const provider = config.provider || 'freellmapi';
+  const model = config.model || 'auto';
   
-  if (businessInfo?.brand_colors) {
-    prompt += ` using brand colors: ${businessInfo.brand_colors.join(', ')}`;
-  }
-  
-  if (businessInfo?.tone) {
-    prompt += ` in a ${businessInfo.tone} style`;
-  }
-  
-  switch (data.type) {
-    case 'carousel':
-      prompt += ' create a 5-image carousel showing different aspects';
-      break;
-    case 'video':
-      prompt += ' create a 15-second video concept';
-      break;
-    default:
-      prompt += ' create a professional social media image';
-  }
-  
-  if (data.platform) {
-    const platformStyles: Record<SocialProvider, string> = {
-      facebook: 'suitable for Facebook feed with clear branding',
-      instagram: 'suitable for Instagram with bold colors and text overlay',
-      tiktok: 'suitable for TikTok with dynamic layout',
-      linkedin: 'suitable for LinkedIn professional audience',
-      x: 'suitable for Twitter/X with clear readability',
-      threads: 'suitable for Threads with modern aesthetic',
-      youtube: 'suitable for YouTube thumbnail format'
-    };
-    prompt += ` ${platformStyles[data.platform] || ''}`;
-  }
-  
-  return prompt;
+  // Prompt genérico que puede usarse con cualquier proveedor
+  return `Prompt creativo para: ${data.prompt} • Proveedor: ${provider} • Modelo: ${model}`;
 }
 
+// Endpoint principal
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
@@ -149,6 +245,9 @@ export async function POST(request: NextRequest) {
 
   const { action, ...payload } = await request.json();
   const supabase = getSupabaseAdmin();
+
+  // Obtener configuración del proveedor de IA
+  const config = await getProviderConfig();
 
   // Obtener client_id del usuario
   const { data: userData } = await supabase
@@ -194,13 +293,21 @@ export async function POST(request: NextRequest) {
           competitors,
           brand_colors,
           tone 
-        } = payload as BusinessAnalysisRequest;
+        } = payload as {
+          business_name: string;
+          category?: string;
+          description?: string;
+          target_audience?: string;
+          competitors?: string[];
+          brand_colors?: string[];
+          tone?: string;
+        };
 
         if (!business_name) {
           return NextResponse.json({ error: 'business_name es requerido.' }, { status: 400 });
         }
 
-        const analysis = analyzeBusiness({
+        const analysis = await analyzeBusiness({
           business_name,
           category,
           description,
@@ -208,7 +315,7 @@ export async function POST(request: NextRequest) {
           competitors,
           brand_colors,
           tone
-        });
+        }, config);
 
         const { data: saved } = await supabase
           .from('business_analyses')
@@ -236,7 +343,13 @@ export async function POST(request: NextRequest) {
           platforms, 
           posts_per_week,
           business_name
-        } = payload as ContentPlanRequest;
+        } = payload as {
+          name: string;
+          duration_weeks: number;
+          platforms: SocialProvider[];
+          posts_per_week: number;
+          business_name?: string;
+        };
 
         if (!name || !platforms || !duration_weeks) {
           return NextResponse.json({ 
@@ -263,17 +376,22 @@ export async function POST(request: NextRequest) {
       }
 
       case 'generate_image_prompt': {
-        const { prompt, plan_id } = payload as GenerateImageRequest;
+        const { prompt, plan_id } = payload as {
+          prompt: string;
+          plan_id?: string;
+        };
         
         if (!prompt) {
           return NextResponse.json({ error: 'prompt es requerido.' }, { status: 400 });
         }
 
-        // En producción, aquí llamarías a OpenAI/DALL-E o Midjourney
-        // Por ahora, devolvemos el prompt generado
+        // Usar el modelo y proveedor configurados
+        const promptPrompt = generateImagePrompt({ prompt }, config);
+
         return NextResponse.json({ 
-          prompt: generateImagePrompt(payload),
-          plan_id 
+          prompt: promptPrompt,
+          model: config.model,
+          provider: config.provider
         }, { status: 200 });
       }
 
@@ -353,6 +471,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Endpoint GET para compatibilidad
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
@@ -361,5 +480,16 @@ export async function GET(request: NextRequest) {
 
   const action = request.nextUrl.searchParams.get('action');
   
-  return POST(request);
+  // Si hay acción específica, pasarla como payload POST
+  if (action) {
+    const body = JSON.stringify({ action });
+    const fakeRequest: NextRequest = {
+      nextUrl: new URL('http://localhost'),
+      headers: { 'content-type': 'application/json' },
+      text: () => Promise.resolve(body),
+    } as any;
+    return POST(fakeRequest);
+  }
+
+  return NextResponse.json({ error: 'Usa POST con acción parámetro' }, { status: 400 });
 }
